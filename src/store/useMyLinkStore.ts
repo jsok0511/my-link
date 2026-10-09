@@ -1,0 +1,74 @@
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { ProfileData, ContentBlock } from "@/types/mylink";
+import { defaultProfile } from "@/data/defaultProfile";
+
+export interface MyLinkState {
+  profile: ProfileData;
+  isHydrated: boolean;
+  setHydrated: (state: boolean) => void;
+  setProfile: (profile: Partial<ProfileData>) => void;
+  addBlock: (block: ContentBlock) => void;
+  updateBlock: (id: string, block: Partial<ContentBlock>) => void;
+  deleteBlock: (id: string) => void;
+  reorderBlocks: (blocks: ContentBlock[]) => void;
+  resetToDefault: () => void;
+}
+
+export const useMyLinkStore = create<MyLinkState>()(
+  persist(
+    (set) => ({
+      profile: defaultProfile,
+      isHydrated: false,
+      setHydrated: (val) => set({ isHydrated: val }),
+      setProfile: (updated) =>
+        set((state) => ({
+          profile: { ...state.profile, ...updated },
+        })),
+      addBlock: (block) =>
+        set((state) => ({
+          profile: {
+            ...state.profile,
+            blocks: [...state.profile.blocks, block],
+          },
+        })),
+      updateBlock: (id, updated) =>
+        set((state) => ({
+          profile: {
+            ...state.profile,
+            blocks: state.profile.blocks.map((b) =>
+              b.id === id ? ({ ...b, ...updated } as ContentBlock) : b
+            ),
+          },
+        })),
+      deleteBlock: (id) =>
+        set((state) => ({
+          profile: {
+            ...state.profile,
+            blocks: state.profile.blocks.filter((b) => b.id !== id),
+          },
+        })),
+      reorderBlocks: (blocks) =>
+        set((state) => ({
+          profile: { ...state.profile, blocks },
+        })),
+      resetToDefault: () =>
+        set({
+          profile: defaultProfile,
+        }),
+    }),
+    {
+      name: "mylink_storage",
+      storage: createJSONStorage(() => (typeof window !== "undefined" ? localStorage : {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {},
+      })),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.setHydrated(true);
+        }
+      },
+    }
+  )
+);
