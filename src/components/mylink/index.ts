@@ -8,3 +8,4 @@ export * from "./CategoryFilter";
 export * from "./BottomCTA";
 export * from "./Toast";
 export * from "./LinkIcon";
+export * from "./LinkAddDialog";
