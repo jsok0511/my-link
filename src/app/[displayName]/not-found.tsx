@@ -1,5 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { UserX, ArrowLeft } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "존재하지 않는 사용자예요",
+  description:
+    "입력하신 사용자 이름을 찾을 수 없거나 이름이 변경되었어요. MyLink에서 나만의 링크 허브를 만들어 보세요.",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function UserNotFound() {
   return (

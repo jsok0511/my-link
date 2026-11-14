@@ -1,5 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SearchX, ArrowLeft } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "페이지를 찾을 수 없어요",
+  description:
+    "요청하신 주소가 잘못되었거나 존재하지 않는 페이지예요. MyLink 홈으로 돌아가 다시 확인해 주세요.",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function NotFound() {
   return (

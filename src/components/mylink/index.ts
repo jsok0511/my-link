@@ -20,3 +20,5 @@ export * from "./PublicProfileView";
 export * from "./LinkClickChart";
 export * from "./LandingPage";
 export * from "./LandingPhonePreview";
+export * from "./HomePageClient";
+export * from "./StatsPageClient";

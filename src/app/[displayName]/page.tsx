@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { fetchUserByDisplayName } from "@/lib/firestore-users";
 import { fetchUserLinks } from "@/lib/firestore-links";
 import { PublicProfileView } from "@/components/mylink";
+import { SITE_NAME, buildSocialMetadata } from "@/lib/seo";
 import type { ProfileData } from "@/types/mylink";
 
 export const dynamic = "force-dynamic";
@@ -21,24 +22,54 @@ export async function generateMetadata({
   const userProfile = await getUserByDisplayName(displayName);
 
   if (!userProfile) {
+    const notFoundTitle = "페이지를 찾을 수 없어요";
+    const notFoundDescription = "요청하신 마이링크 페이지를 찾을 수 없어요.";
+
     return {
-      title: "페이지를 찾을 수 없어요 | MyLink",
-      description: "요청하신 마이링크 페이지를 찾을 수 없어요.",
+      title: notFoundTitle,
+      description: notFoundDescription,
+      robots: {
+        index: false,
+        follow: false,
+      },
+      ...buildSocialMetadata({
+        title: `${notFoundTitle} | ${SITE_NAME}`,
+        description: notFoundDescription,
+      }),
     };
   }
 
+  const profileFullTitle = `${userProfile.displayName} | ${SITE_NAME}`;
+  const profileDescription =
+    userProfile.bio ||
+    `${userProfile.displayName}님의 마이링크 페이지예요.`;
+  const canonicalPath = `/${encodeURIComponent(userProfile.displayName)}`;
+
   return {
-    title: `${userProfile.displayName} | MyLink`,
-    description:
-      userProfile.bio ||
-      `${userProfile.displayName}님의 마이링크 페이지예요.`,
-    openGraph: {
-      title: `${userProfile.displayName} | MyLink`,
-      description:
-        userProfile.bio ||
-        `${userProfile.displayName}님의 마이링크 페이지예요.`,
-      type: "profile",
+    title: userProfile.displayName,
+    description: profileDescription,
+    keywords: [
+      userProfile.displayName,
+      `${userProfile.displayName} 링크`,
+      SITE_NAME,
+      "마이링크",
+      "링크 허브",
+      "프로필 링크",
+    ],
+    alternates: {
+      canonical: canonicalPath,
     },
+    robots: {
+      index: true,
+      follow: true,
+    },
+    ...buildSocialMetadata({
+      title: profileFullTitle,
+      description: profileDescription,
+      url: canonicalPath,
+      type: "profile",
+      username: userProfile.displayName,
+    }),
   };
 }
 

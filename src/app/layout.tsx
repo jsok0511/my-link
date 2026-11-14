@@ -6,20 +6,50 @@ import { FirebaseAnalytics } from "@/components/FirebaseAnalytics";
 import { QueryProvider } from "@/components/QueryProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_KEYWORDS,
+  DEFAULT_TITLE,
+  OG_DEFAULT_DESCRIPTION,
+  SITE_NAME,
+  buildSocialMetadata,
+  getMetadataBase,
+} from "@/lib/seo";
+
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: "MyLink | 흩어진 내 모든 링크, 하나의 주소로",
-  description:
-    "블로그, GitHub, 포트폴리오부터 1:1 커피챗까지. Google 로그인 한 번으로 10초 만에 만드는 나만의 링크 허브예요.",
-  keywords: ["마이링크", "MyLink", "링크 허브", "프로필 링크", "포트폴리오", "TDS", "Next.js"],
-  authors: [{ name: "이지성", url: "https://github.com/jsok0511" }],
-  openGraph: {
-    title: "MyLink | 흩어진 내 모든 링크, 하나의 주소로",
-    description:
-      "Google 로그인 한 번으로 10초 만에 완성하는 나만의 디지털 명함 & 링크 허브예요.",
-    type: "website",
+  metadataBase: getMetadataBase(),
+  applicationName: SITE_NAME,
+  title: {
+    default: DEFAULT_TITLE,
+    template: `%s | ${SITE_NAME}`,
   },
+  description: DEFAULT_DESCRIPTION,
+  keywords: DEFAULT_KEYWORDS,
+  authors: [{ name: "이지성", url: "https://github.com/jsok0511" }],
+  creator: "이지성",
+  publisher: SITE_NAME,
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  ...buildSocialMetadata({
+    title: DEFAULT_TITLE,
+    description: OG_DEFAULT_DESCRIPTION,
+  }),
 };
 
 export default function RootLayout({
