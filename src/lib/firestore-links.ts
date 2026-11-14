@@ -1,9 +1,14 @@
 import {
   addDoc,
   collection,
+  getDocs,
   onSnapshot,
+  orderBy,
+  query,
   serverTimestamp,
   type DocumentData,
+  type QueryDocumentSnapshot,
+  type QuerySnapshot,
   type Timestamp,
   type Unsubscribe,
 } from "firebase/firestore";
@@ -25,6 +30,10 @@ function getAnonymousLinksCollection() {
   return collection(db, ...ANONYMOUS_LINKS_PATH);
 }
 
+function getAnonymousLinksQuery() {
+  return query(getAnonymousLinksCollection(), orderBy("createdAt", "desc"));
+}
+
 function toTimestampMillis(value: unknown): number {
   if (typeof value === "number") {
     return value;
@@ -32,10 +41,28 @@ function toTimestampMillis(value: unknown): number {
   if (value instanceof Date) {
     return value.getTime();
   }
-  if (value && typeof value === "object" && "toMillis" in value && typeof (value as Timestamp).toMillis === "function") {
-    return (value as Timestamp).toMillis();
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  if (value && typeof value === "object") {
+    if ("toMillis" in value && typeof (value as Timestamp).toMillis === "function") {
+      return (value as Timestamp).toMillis();
+    }
+    if ("seconds" in value && typeof (value as { seconds: unknown }).seconds === "number") {
+      return (value as { seconds: number }).seconds * 1000;
+    }
   }
   return 0;
+}
+
+function getCreatedAtMillis(docSnap: QueryDocumentSnapshot<DocumentData>): number {
+  const data = docSnap.data({ serverTimestamps: "estimate" });
+  const millis = toTimestampMillis(data.createdAt);
+  if (millis > 0) {
+    return millis;
+  }
+  return docSnap.metadata.hasPendingWrites ? Date.now() : 0;
 }
 
 function mapDocToLinkItem(id: string, data: DocumentData): LinkItem {
@@ -50,6 +77,19 @@ function mapDocToLinkItem(id: string, data: DocumentData): LinkItem {
     category: data.category,
     enabled: typeof data.enabled === "boolean" ? data.enabled : true,
   };
+}
+
+function mapSnapshotToLinks(snapshot: QuerySnapshot<DocumentData>): LinkItem[] {
+  const linksWithOrder = snapshot.docs.map((docSnap) => {
+    const data = docSnap.data({ serverTimestamps: "estimate" });
+    return {
+      link: mapDocToLinkItem(docSnap.id, data),
+      createdAtMs: getCreatedAtMillis(docSnap),
+    };
+  });
+
+  linksWithOrder.sort((a, b) => b.createdAtMs - a.createdAtMs);
+  return linksWithOrder.map((entry) => entry.link);
 }
 
 /**
@@ -92,25 +132,24 @@ export async function addLinkToFirestore(input: CreateLinkInput): Promise<LinkIt
 }
 
 /**
- * Subscribes to links stored under `users/anonymous/links` in chronological order.
+ * Fetches links stored under `users/anonymous/links` ordered by `createdAt` descending (newest first).
+ */
+export async function fetchAnonymousLinks(): Promise<LinkItem[]> {
+  const snapshot = await getDocs(getAnonymousLinksQuery());
+  return mapSnapshotToLinks(snapshot);
+}
+
+/**
+ * Subscribes to links stored under `users/anonymous/links` ordered by `createdAt` descending (newest first).
  */
 export function subscribeToAnonymousLinks(
   onLinks: (links: LinkItem[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe {
   return onSnapshot(
-    getAnonymousLinksCollection(),
+    getAnonymousLinksQuery(),
     (snapshot) => {
-      const linksWithOrder = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data();
-        return {
-          link: mapDocToLinkItem(docSnap.id, data),
-          createdAtMs: toTimestampMillis(data.createdAt),
-        };
-      });
-
-      linksWithOrder.sort((a, b) => a.createdAtMs - b.createdAtMs);
-      onLinks(linksWithOrder.map((entry) => entry.link));
+      onLinks(mapSnapshotToLinks(snapshot));
     },
     (error) => {
       onError?.(error);

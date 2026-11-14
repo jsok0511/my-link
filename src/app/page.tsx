@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useSyncExternalStore } from "react";
+import React, { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
 import { defaultProfile } from "@/data/defaultProfile";
-import { subscribeToAnonymousLinks } from "@/lib/firestore-links";
+import {
+  fetchAnonymousLinks,
+  subscribeToAnonymousLinks,
+} from "@/lib/firestore-links";
 import {
   TopBar,
   ProfileHero,
@@ -31,17 +34,47 @@ export default function HomePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const hasMounted = useHasMounted();
 
+  const refreshLinks = useCallback(async () => {
+    try {
+      const links = await fetchAnonymousLinks();
+      setFirestoreLinks(links);
+    } catch (error) {
+      console.error("Failed to fetch Firestore links:", error);
+      setToastMessage("링크 목록을 불러오지 못했어요");
+    }
+  }, [setFirestoreLinks]);
+
   useEffect(() => {
+    let isCancelled = false;
+
+    fetchAnonymousLinks()
+      .then((links) => {
+        if (!isCancelled) {
+          setFirestoreLinks(links);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load initial Firestore links:", error);
+        if (!isCancelled) {
+          setToastMessage("링크 목록을 불러오지 못했어요");
+        }
+      });
+
     const unsubscribe = subscribeToAnonymousLinks(
       (links) => {
-        setFirestoreLinks(links);
+        if (!isCancelled) {
+          setFirestoreLinks(links);
+        }
       },
       (error) => {
         console.error("Failed to subscribe to Firestore links:", error);
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      isCancelled = true;
+      unsubscribe();
+    };
   }, [setFirestoreLinks]);
 
   const showToast = (message: string) => {
@@ -77,6 +110,7 @@ export default function HomePage() {
           <LinkAddDialog
             onSuccess={(link) => {
               showToast(`${link.title} 링크를 저장했어요`);
+              void refreshLinks();
             }}
           >
             <Button className="w-full h-[52px] rounded-2xl bg-[#3182F6] hover:bg-[#1B64DA] text-white font-bold active:scale-[0.98] shadow-sm transition-transform">

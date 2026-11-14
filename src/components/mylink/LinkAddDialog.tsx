@@ -36,7 +36,7 @@ interface LinkAddDialogProps {
 export function LinkAddDialog({ children, onSuccess }: LinkAddDialogProps) {
   const [open, setOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const addBlock = useMyLinkStore((state) => state.addBlock);
+  const addFirestoreLink = useMyLinkStore((state) => state.addFirestoreLink);
 
   const {
     register,
@@ -63,7 +63,7 @@ export function LinkAddDialog({ children, onSuccess }: LinkAddDialogProps) {
         icon: data.icon,
       });
 
-      addBlock(createdLink);
+      addFirestoreLink(createdLink);
       setOpen(false);
       reset();
       onSuccess?.(createdLink);

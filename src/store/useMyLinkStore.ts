@@ -9,6 +9,7 @@ export interface MyLinkState {
   setHydrated: (state: boolean) => void;
   setProfile: (profile: Partial<ProfileData>) => void;
   addBlock: (block: ContentBlock) => void;
+  addFirestoreLink: (link: LinkItem) => void;
   setFirestoreLinks: (links: LinkItem[]) => void;
   updateBlock: (id: string, block: Partial<ContentBlock>) => void;
   deleteBlock: (id: string) => void;
@@ -34,7 +35,23 @@ export const useMyLinkStore = create<MyLinkState>()((set) => ({
       return {
         profile: {
           ...state.profile,
-          blocks: [...state.profile.blocks, block],
+          blocks: [block, ...state.profile.blocks],
+        },
+      };
+    }),
+  addFirestoreLink: (link) =>
+    set((state) => {
+      const existsInBlocks = state.profile.blocks.some((b) => b.id === link.id);
+      const existsInRemote = state.firestoreLinkIds.includes(link.id);
+      return {
+        firestoreLinkIds: existsInRemote
+          ? state.firestoreLinkIds
+          : [link.id, ...state.firestoreLinkIds],
+        profile: {
+          ...state.profile,
+          blocks: existsInBlocks
+            ? state.profile.blocks
+            : [link, ...state.profile.blocks],
         },
       };
     }),
@@ -52,7 +69,7 @@ export const useMyLinkStore = create<MyLinkState>()((set) => ({
         firestoreLinkIds: nextRemoteIds,
         profile: {
           ...state.profile,
-          blocks: [...baseBlocks, ...links],
+          blocks: [...links, ...baseBlocks],
         },
       };
     }),
