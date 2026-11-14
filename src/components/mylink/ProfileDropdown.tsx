@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Popover } from "@base-ui/react/popover";
 import {
+  BarChart3,
   ChevronDown,
   ExternalLink,
   Home,
@@ -195,6 +196,17 @@ export function ProfileDropdown({ onShowToast, onShare }: ProfileDropdownProps) 
                   >
                     <Home className="h-4 w-4 text-[#6B7684]" />
                     <span>내 링크 관리</span>
+                  </Link>
+                )}
+
+                {pathname !== "/stats" && (
+                  <Link
+                    href="/stats"
+                    onClick={() => setOpen(false)}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium text-[#333D4B] transition-colors hover:bg-[#F2F4F6] hover:text-[#191F28] no-underline"
+                  >
+                    <BarChart3 className="h-4 w-4 text-[#6B7684]" />
+                    <span>클릭 통계</span>
                   </Link>
                 )}
 

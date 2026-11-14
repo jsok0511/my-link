@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Share2, Check, UserRound } from "lucide-react";
+import { Share2, Check, UserRound, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
 import { useGoogleAuth } from "@/lib/use-google-auth";
@@ -39,6 +39,7 @@ export function TopBar({ onShowToast, className = "" }: TopBarProps) {
       safeDecodeDisplayName(pathname).toLowerCase() ===
         `/${myDisplayName.toLowerCase()}`
   );
+  const isOnStatsPage = pathname === "/stats";
 
   const handleShare = async () => {
     try {
@@ -78,12 +79,26 @@ export function TopBar({ onShowToast, className = "" }: TopBarProps) {
           </span>
         </Link>
 
-        {/* Right Actions: Personal Page + Share + Auth / Profile Dropdown */}
+        {/* Right Actions: Stats + Personal Page + Share + Auth / Profile Dropdown */}
         <div className="flex items-center gap-1 sm:gap-1.5">
+          {!authLoading && user && (
+            <Link
+              href="/stats"
+              className={`flex h-8 items-center gap-1 rounded-xl px-2 sm:px-2.5 text-[13px] transition-all active:scale-95 no-underline ${
+                isOnStatsPage
+                  ? "bg-[#E8F3FF] font-semibold text-[#3182F6]"
+                  : "font-medium text-[#4E5968] hover:bg-[#F2F4F6] hover:text-[#191F28]"
+              }`}
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              <span>통계</span>
+            </Link>
+          )}
+
           {!authLoading && user && personalPageHref && (
             <Link
               href={personalPageHref}
-              className={`flex h-8 items-center gap-1 rounded-xl px-2.5 text-[13px] transition-all active:scale-95 no-underline ${
+              className={`flex h-8 items-center gap-1 rounded-xl px-2 sm:px-2.5 text-[13px] transition-all active:scale-95 no-underline ${
                 isOnPersonalPage
                   ? "bg-[#E8F3FF] font-semibold text-[#3182F6]"
                   : "font-medium text-[#4E5968] hover:bg-[#F2F4F6] hover:text-[#191F28]"
@@ -99,17 +114,18 @@ export function TopBar({ onShowToast, className = "" }: TopBarProps) {
             variant="ghost"
             size="sm"
             onClick={handleShare}
-            className="flex h-8 items-center gap-1.5 rounded-xl px-2.5 text-[13px] font-medium text-[#4E5968] hover:bg-[#F2F4F6] hover:text-[#191F28] active:scale-95 transition-all cursor-pointer"
+            aria-label="페이지 공유"
+            className="flex h-8 items-center gap-1.5 rounded-xl px-2 sm:px-2.5 text-[13px] font-medium text-[#4E5968] hover:bg-[#F2F4F6] hover:text-[#191F28] active:scale-95 transition-all cursor-pointer"
           >
             {copied ? (
               <>
                 <Check className="h-3.5 w-3.5 text-[#059669]" />
-                <span className="text-[#059669]">복사됨</span>
+                <span className="hidden min-[400px]:inline text-[#059669]">복사됨</span>
               </>
             ) : (
               <>
                 <Share2 className="h-3.5 w-3.5" />
-                <span>공유</span>
+                <span className="hidden min-[400px]:inline">공유</span>
               </>
             )}
           </Button>
