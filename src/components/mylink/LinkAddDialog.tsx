@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { addLinkToFirestore } from "@/lib/firestore-links";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
 import { LinkItem } from "@/types/mylink";
 
@@ -25,15 +28,21 @@ const linkSchema = z.object({
 
 type LinkFormValues = z.infer<typeof linkSchema>;
 
-export function LinkAddDialog({ children }: { children: React.ReactElement }) {
+interface LinkAddDialogProps {
+  children: React.ReactElement;
+  onSuccess?: (link: LinkItem) => void;
+}
+
+export function LinkAddDialog({ children, onSuccess }: LinkAddDialogProps) {
   const [open, setOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const addBlock = useMyLinkStore((state) => state.addBlock);
 
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<LinkFormValues>({
     resolver: zodResolver(linkSchema),
     defaultValues: {
@@ -44,26 +53,31 @@ export function LinkAddDialog({ children }: { children: React.ReactElement }) {
     },
   });
 
-  const onSubmit = (data: LinkFormValues) => {
-    const newLink: LinkItem = {
-      id: crypto.randomUUID(),
-      type: "link",
-      title: data.title,
-      url: data.url,
-      description: data.description,
-      icon: data.icon || "Link",
-      enabled: true,
-    };
+  const onSubmit = async (data: LinkFormValues) => {
+    setSubmitError(null);
+    try {
+      const createdLink = await addLinkToFirestore({
+        title: data.title,
+        url: data.url,
+        description: data.description,
+        icon: data.icon,
+      });
 
-    addBlock(newLink);
-    setOpen(false);
-    reset();
+      addBlock(createdLink);
+      setOpen(false);
+      reset();
+      onSuccess?.(createdLink);
+    } catch (error) {
+      console.error("Failed to save link to Firestore:", error);
+      setSubmitError("링크 저장 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.");
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
       setOpen(isOpen);
       if (!isOpen) {
+        setSubmitError(null);
         reset();
       }
     }}>
@@ -78,6 +92,7 @@ export function LinkAddDialog({ children }: { children: React.ReactElement }) {
             <Input
               id="title"
               placeholder="예: 내 포트폴리오"
+              disabled={isSubmitting}
               className={`rounded-xl border-[#E5E8EB] focus-visible:ring-[#3182F6] ${errors.title ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
               {...register("title")}
             />
@@ -89,6 +104,7 @@ export function LinkAddDialog({ children }: { children: React.ReactElement }) {
               id="url"
               type="url"
               placeholder="https://..."
+              disabled={isSubmitting}
               className={`rounded-xl border-[#E5E8EB] focus-visible:ring-[#3182F6] ${errors.url ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
               {...register("url")}
             />
@@ -99,6 +115,7 @@ export function LinkAddDialog({ children }: { children: React.ReactElement }) {
             <Input
               id="description"
               placeholder="링크에 대한 간단한 설명"
+              disabled={isSubmitting}
               className="rounded-xl border-[#E5E8EB] focus-visible:ring-[#3182F6]"
               {...register("description")}
             />
@@ -108,13 +125,21 @@ export function LinkAddDialog({ children }: { children: React.ReactElement }) {
             <Input
               id="icon"
               placeholder="예: Github, FileText"
+              disabled={isSubmitting}
               className="rounded-xl border-[#E5E8EB] focus-visible:ring-[#3182F6]"
               {...register("icon")}
             />
           </div>
+          {submitError && (
+            <p className="text-[12px] text-red-500" role="alert">{submitError}</p>
+          )}
           <DialogFooter className="mt-2">
-            <Button type="submit" className="w-full bg-[#3182F6] hover:bg-[#1B64DA] text-white font-bold h-[52px] rounded-2xl active:scale-[0.98] shadow-sm transition-transform">
-              추가하기
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-[#3182F6] hover:bg-[#1B64DA] text-white font-bold h-[52px] rounded-2xl active:scale-[0.98] shadow-sm transition-transform disabled:opacity-60"
+            >
+              {isSubmitting ? "저장 중..." : "추가하기"}
             </Button>
           </DialogFooter>
         </form>

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useSyncExternalStore } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
 import { defaultProfile } from "@/data/defaultProfile";
+import { subscribeToAnonymousLinks } from "@/lib/firestore-links";
 import {
   TopBar,
   ProfileHero,
@@ -26,8 +27,22 @@ const useHasMounted = () => {
 export default function HomePage() {
   const profile = useMyLinkStore((state) => state.profile);
   const isHydrated = useMyLinkStore((state) => state.isHydrated);
+  const setFirestoreLinks = useMyLinkStore((state) => state.setFirestoreLinks);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const hasMounted = useHasMounted();
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAnonymousLinks(
+      (links) => {
+        setFirestoreLinks(links);
+      },
+      (error) => {
+        console.error("Failed to subscribe to Firestore links:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [setFirestoreLinks]);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -59,7 +74,11 @@ export default function HomePage() {
 
         {/* Add Link Button */}
         <div className="mt-6 mb-4 flex justify-center">
-          <LinkAddDialog>
+          <LinkAddDialog
+            onSuccess={(link) => {
+              showToast(`${link.title} 링크를 저장했어요`);
+            }}
+          >
             <Button className="w-full h-[52px] rounded-2xl bg-[#3182F6] hover:bg-[#1B64DA] text-white font-bold active:scale-[0.98] shadow-sm transition-transform">
               + 새 링크 추가하기
             </Button>

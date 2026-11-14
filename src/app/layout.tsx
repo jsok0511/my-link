@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { FirebaseAnalytics } from "@/components/FirebaseAnalytics";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -25,6 +26,7 @@ export default function RootLayout({
   return (
     <html lang="ko" className={cn("font-sans", geist.variable)}>
       <body className="min-h-screen flex flex-col bg-[#F9FAFB] text-[#191F28] selection:bg-[#E8F3FF] selection:text-[#3182F6]">
+        <FirebaseAnalytics />
         {children}
       </body>
     </html>
