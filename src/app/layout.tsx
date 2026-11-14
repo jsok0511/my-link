@@ -9,13 +9,15 @@ import { AuthProvider } from "@/components/AuthProvider";
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: "이지성 | Lee Ji-seong • 프로필",
-  description: "토스 디자인 시스템(TDS) 스타일로 구성된 대학생 & 바이브 코더 이지성의 개인 링크 허브예요.",
-  keywords: ["이지성", "Lee Ji-seong", "바이브 코딩", "Vibe Coding", "Next.js", "TDS", "토스 디자인 시스템", "프로필"],
+  title: "MyLink | 흩어진 내 모든 링크, 하나의 주소로",
+  description:
+    "블로그, GitHub, 포트폴리오부터 1:1 커피챗까지. Google 로그인 한 번으로 10초 만에 만드는 나만의 링크 허브예요.",
+  keywords: ["마이링크", "MyLink", "링크 허브", "프로필 링크", "포트폴리오", "TDS", "Next.js"],
   authors: [{ name: "이지성", url: "https://github.com/jsok0511" }],
   openGraph: {
-    title: "이지성 | Lee Ji-seong • 프로필",
-    description: "토스 디자인 시스템(TDS) 스타일로 구성된 대학생 & 바이브 코더 이지성의 개인 링크 허브예요.",
+    title: "MyLink | 흩어진 내 모든 링크, 하나의 주소로",
+    description:
+      "Google 로그인 한 번으로 10초 만에 완성하는 나만의 디지털 명함 & 링크 허브예요.",
     type: "website",
   },
 };

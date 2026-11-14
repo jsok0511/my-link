@@ -14,10 +14,17 @@ import { ProfileDropdown } from "./ProfileDropdown";
 
 interface TopBarProps {
   onShowToast: (msg: string) => void;
+  containerClassName?: string;
+  showLandingNav?: boolean;
   className?: string;
 }
 
-export function TopBar({ onShowToast, className = "" }: TopBarProps) {
+export function TopBar({
+  onShowToast,
+  containerClassName = "max-w-md sm:max-w-lg",
+  showLandingNav = false,
+  className = "",
+}: TopBarProps) {
   const [copied, setCopied] = useState(false);
   const pathname = usePathname();
   const user = useMyLinkStore((state) => state.user);
@@ -67,7 +74,9 @@ export function TopBar({ onShowToast, className = "" }: TopBarProps) {
     <header
       className={`sticky top-0 z-40 w-full border-b border-[#E5E8EB] bg-[#F9FAFB]/85 backdrop-blur-md transition-colors ${className}`}
     >
-      <div className="mx-auto flex h-14 max-w-md items-center justify-between gap-2 px-4 sm:max-w-lg">
+      <div
+        className={`mx-auto flex h-14 items-center justify-between gap-2 px-4 ${containerClassName}`}
+      >
         {/* Brand Logo */}
         <Link
           href="/"
@@ -78,6 +87,33 @@ export function TopBar({ onShowToast, className = "" }: TopBarProps) {
             MYLINK
           </span>
         </Link>
+
+        {/* Optional Desktop Landing Navigation */}
+        {showLandingNav && !authLoading && !user && (
+          <nav
+            aria-label="랜딩 페이지 탐색"
+            className="hidden md:flex items-center gap-1"
+          >
+            <a
+              href="#preview"
+              className="flex h-8 items-center rounded-xl px-3 text-[13px] font-medium text-[#4E5968] transition-colors hover:bg-[#F2F4F6] hover:text-[#191F28] no-underline"
+            >
+              미리보기
+            </a>
+            <a
+              href="#features"
+              className="flex h-8 items-center rounded-xl px-3 text-[13px] font-medium text-[#4E5968] transition-colors hover:bg-[#F2F4F6] hover:text-[#191F28] no-underline"
+            >
+              주요 기능
+            </a>
+            <a
+              href="#how-it-works"
+              className="flex h-8 items-center rounded-xl px-3 text-[13px] font-medium text-[#4E5968] transition-colors hover:bg-[#F2F4F6] hover:text-[#191F28] no-underline"
+            >
+              시작 방법
+            </a>
+          </nav>
+        )}
 
         {/* Right Actions: Stats + Personal Page + Share + Auth / Profile Dropdown */}
         <div className="flex items-center gap-1 sm:gap-1.5">

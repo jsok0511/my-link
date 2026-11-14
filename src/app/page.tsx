@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
 import { getClickCountErrorMessage } from "@/lib/firestore-links";
 import {
@@ -14,7 +15,7 @@ import {
   BottomCTA,
   Toast,
   LinkAddDialog,
-  LoginRequiredCard,
+  LandingPage,
 } from "@/components/mylink";
 import { Button } from "@/components/ui/button";
 
@@ -43,11 +44,13 @@ function AuthLoadingSkeleton() {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const authLoading = useMyLinkStore((state) => state.authLoading);
 
   const {
     user,
     profile,
+    profileDoc,
     isLinksLoading,
     isLinksError,
     refetchLinks,
@@ -77,18 +80,39 @@ export default function HomePage() {
   };
 
   const isAuthReady = hasMounted && !authLoading;
+  const isLandingView = isAuthReady && !user;
+  const myDisplayName = (
+    profileDoc?.displayName ||
+    profile.displayName ||
+    user?.displayName ||
+    ""
+  ).trim();
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] text-[#191F28] font-sans antialiased selection:bg-[#E8F3FF] selection:text-[#3182F6]">
-      {/* 1. Top Navigation Bar (with Google Login / Logout) */}
-      <TopBar onShowToast={showToast} />
+      {/* 1. Top Navigation Bar (adapts width for landing vs personal hub) */}
+      <TopBar
+        onShowToast={showToast}
+        containerClassName={
+          isLandingView
+            ? "max-w-5xl sm:px-6 lg:px-8"
+            : "max-w-md sm:max-w-lg"
+        }
+        showLandingNav={isLandingView}
+      />
 
-      {/* 2. Main Mobile-First Container */}
-      <main className="mx-auto w-full max-w-md px-4 sm:max-w-lg sm:px-6 pb-10">
+      {/* 2. Main Container */}
+      <main
+        className={
+          isLandingView
+            ? "mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 pb-10"
+            : "mx-auto w-full max-w-md px-4 sm:max-w-lg sm:px-6 pb-10"
+        }
+      >
         {!isAuthReady ? (
           <AuthLoadingSkeleton />
         ) : !user ? (
-          <LoginRequiredCard onShowToast={showToast} />
+          <LandingPage onShowToast={showToast} />
         ) : (
           <>
             {/* Authenticated User Profile Hero (from users/{uid}) */}
@@ -148,20 +172,24 @@ export default function HomePage() {
                 />
               )}
             </div>
+
+            {/* Bottom CTA & Footer for Authenticated View */}
+            <BottomCTA
+              label={
+                myDisplayName
+                  ? "내 공개 마이링크 페이지 보기"
+                  : "내 링크 클릭 통계 보기"
+              }
+              onAction={() => {
+                if (myDisplayName) {
+                  router.push(`/${encodeURIComponent(myDisplayName)}`);
+                } else {
+                  router.push("/stats");
+                }
+              }}
+            />
           </>
         )}
-
-        {/* Bottom CTA & Footer */}
-        <BottomCTA
-          onAction={() => {
-            if (!user) {
-              window.scrollTo({ top: 0, behavior: "smooth" });
-              showToast("상단 또는 안내 카드에서 Google 로그인을 진행해 주세요");
-              return;
-            }
-            showToast("마이링크 서비스를 준비하고 있어요");
-          }}
-        />
       </main>
 
       {/* 3. TDS Floating Toast */}

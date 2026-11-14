@@ -18,3 +18,5 @@ export * from "./ProfileEditDialog";
 export * from "./ProfileEditForm";
 export * from "./PublicProfileView";
 export * from "./LinkClickChart";
+export * from "./LandingPage";
+export * from "./LandingPhonePreview";
