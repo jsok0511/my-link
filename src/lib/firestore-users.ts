@@ -1,11 +1,9 @@
 import {
   doc,
   getDoc,
-  onSnapshot,
   runTransaction,
   serverTimestamp,
   type DocumentData,
-  type Unsubscribe,
 } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase";
@@ -309,24 +307,12 @@ export async function updateUserProfileInFirestore(
 }
 
 /**
- * Subscribes to user profile metadata stored at `users/{uid}`.
+ * Fetches user profile metadata stored at `users/{uid}`.
  */
-export function subscribeToUserProfile(
-  uid: string,
-  onProfile: (profile: UserProfileDoc | null) => void,
-  onError?: (error: Error) => void
-): Unsubscribe {
-  return onSnapshot(
-    getUserDocRef(uid),
-    (snapshot) => {
-      if (!snapshot.exists()) {
-        onProfile(null);
-        return;
-      }
-      onProfile(mapDocToUserProfile(uid, snapshot.data()));
-    },
-    (error) => {
-      onError?.(error);
-    }
-  );
+export async function fetchUserProfile(uid: string): Promise<UserProfileDoc | null> {
+  const snapshot = await getDoc(getUserDocRef(uid));
+  if (!snapshot.exists()) {
+    return null;
+  }
+  return mapDocToUserProfile(uid, snapshot.data());
 }

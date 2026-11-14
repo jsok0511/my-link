@@ -12,7 +12,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useMyLinkStore } from "@/store/useMyLinkStore";
+import { useCurrentUserProfileData } from "@/lib/use-mylink-queries";
 import { useGoogleAuth } from "@/lib/use-google-auth";
 import { ProfileEditDialog } from "./ProfileEditDialog";
 
@@ -29,8 +29,7 @@ export function ProfileDropdown({ onShowToast, onShare }: ProfileDropdownProps) 
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  const user = useMyLinkStore((state) => state.user);
-  const profile = useMyLinkStore((state) => state.profile);
+  const { user, profile } = useCurrentUserProfileData();
   const { isSigningIn, isSigningOut, handleSignIn, handleSignOut } = useGoogleAuth({
     onShowToast,
   });

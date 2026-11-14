@@ -7,7 +7,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { updateLinkInFirestore } from "@/lib/firestore-links";
+import { useUpdateLinkMutation } from "@/lib/use-mylink-queries";
 import { linkSchema, type LinkFormValues } from "@/lib/link-schema";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
 import type { LinkItem } from "@/types/mylink";
@@ -57,7 +57,7 @@ function LinkInlineEditForm({
 }: LinkInlineEditFormProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const uid = useMyLinkStore((state) => state.user?.uid);
-  const updateBlock = useMyLinkStore((state) => state.updateBlock);
+  const updateLinkMutation = useUpdateLinkMutation(uid);
 
   const {
     register,
@@ -73,6 +73,8 @@ function LinkInlineEditForm({
     },
   });
 
+  const isPending = isSubmitting || updateLinkMutation.isPending;
+
   const onSubmit = async (data: LinkFormValues) => {
     setSubmitError(null);
     if (!uid) {
@@ -81,16 +83,18 @@ function LinkInlineEditForm({
     }
 
     try {
-      const updatedLink = await updateLinkInFirestore(uid, id, {
-        title: data.title,
-        url: data.url,
-        description: data.description,
-        icon: data.icon,
-        badge,
-        category,
+      const updatedLink = await updateLinkMutation.mutateAsync({
+        id,
+        input: {
+          title: data.title,
+          url: data.url,
+          description: data.description,
+          icon: data.icon,
+          badge,
+          category,
+        },
       });
 
-      updateBlock(id, updatedLink);
       onSuccess(updatedLink);
     } catch (error) {
       console.error("Failed to update link in Firestore:", error);
@@ -107,7 +111,7 @@ function LinkInlineEditForm({
       <LinkFormFields
         register={register}
         errors={errors}
-        disabled={isSubmitting}
+        disabled={isPending}
         idPrefix={`edit-${id}`}
       />
 
@@ -121,7 +125,7 @@ function LinkInlineEditForm({
         <Button
           type="button"
           variant="outline"
-          disabled={isSubmitting}
+          disabled={isPending}
           onClick={onCancel}
           className="flex-1 h-11 rounded-xl border-[#E5E8EB] text-[#4E5968] font-semibold hover:bg-[#F2F4F6]"
         >
@@ -129,10 +133,10 @@ function LinkInlineEditForm({
         </Button>
         <Button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isPending}
           className="flex-1 h-11 rounded-xl bg-[#3182F6] hover:bg-[#1B64DA] text-white font-bold active:scale-[0.98] transition-transform disabled:opacity-60"
         >
-          {isSubmitting ? "저장 중..." : "저장하기"}
+          {isPending ? "저장 중..." : "저장하기"}
         </Button>
       </div>
     </form>

@@ -4,7 +4,6 @@ import {
   deleteDoc,
   doc,
   getDocs,
-  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -14,7 +13,6 @@ import {
   type QueryDocumentSnapshot,
   type QuerySnapshot,
   type Timestamp,
-  type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { LinkItem } from "@/types/mylink";
@@ -215,23 +213,4 @@ export async function deleteLinkFromFirestore(uid: string, id: string): Promise<
 export async function fetchUserLinks(uid: string): Promise<LinkItem[]> {
   const snapshot = await getDocs(getUserLinksQuery(uid));
   return mapSnapshotToLinks(snapshot);
-}
-
-/**
- * Subscribes to links stored under `users/{uid}/links` ordered by `createdAt` descending (newest first).
- */
-export function subscribeToUserLinks(
-  uid: string,
-  onLinks: (links: LinkItem[]) => void,
-  onError?: (error: Error) => void
-): Unsubscribe {
-  return onSnapshot(
-    getUserLinksQuery(uid),
-    (snapshot) => {
-      onLinks(mapSnapshotToLinks(snapshot));
-    },
-    (error) => {
-      onError?.(error);
-    }
-  );
 }

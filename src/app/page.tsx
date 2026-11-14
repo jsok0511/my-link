@@ -1,19 +1,17 @@
 "use client";
 
 import React, { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
 import {
   subscribeToAuthState,
   toAuthUserSummary,
 } from "@/lib/firebase-auth";
 import {
-  subscribeToUserProfile,
-  syncUserProfileToFirestore,
-} from "@/lib/firestore-users";
-import {
-  fetchUserLinks,
-  subscribeToUserLinks,
-} from "@/lib/firestore-links";
+  myLinkKeys,
+  useCurrentUserProfileData,
+  useSyncUserProfileMutation,
+} from "@/lib/use-mylink-queries";
 import {
   TopBar,
   ProfileHero,
@@ -50,35 +48,27 @@ function AuthLoadingSkeleton() {
 }
 
 export default function HomePage() {
-  const user = useMyLinkStore((state) => state.user);
+  const queryClient = useQueryClient();
   const authLoading = useMyLinkStore((state) => state.authLoading);
-  const linksLoading = useMyLinkStore((state) => state.linksLoading);
-  const profile = useMyLinkStore((state) => state.profile);
   const setAuthUser = useMyLinkStore((state) => state.setAuthUser);
-  const setLinksLoading = useMyLinkStore((state) => state.setLinksLoading);
-  const setUserProfileDoc = useMyLinkStore((state) => state.setUserProfileDoc);
-  const setFirestoreLinks = useMyLinkStore((state) => state.setFirestoreLinks);
+
+  const {
+    user,
+    profile,
+    isLinksLoading,
+    isLinksError,
+    refetchLinks,
+  } = useCurrentUserProfileData();
+  const { mutate: syncUserProfile } = useSyncUserProfileMutation();
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const hasMounted = useHasMounted();
-  const uid = user?.uid ?? null;
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
   }, []);
 
-  const refreshLinks = useCallback(async () => {
-    if (!uid) return;
-    try {
-      const links = await fetchUserLinks(uid);
-      setFirestoreLinks(links);
-    } catch (error) {
-      console.error("Failed to fetch user Firestore links:", error);
-      showToast("링크 목록을 불러오지 못했어요");
-    }
-  }, [uid, setFirestoreLinks, showToast]);
-
-  // 1. Firebase Auth 상태 구독 및 로그인 시 users/{uid} 프로필 동기화
+  // 1. Firebase Auth 상태 구독 및 로그인 시 users/{uid} 프로필 동기화 (비실시간)
   useEffect(() => {
     let isCancelled = false;
 
@@ -87,74 +77,27 @@ export default function HomePage() {
 
       if (!firebaseUser) {
         setAuthUser(null);
+        queryClient.removeQueries({ queryKey: myLinkKeys.all });
         return;
       }
 
       setAuthUser(toAuthUserSummary(firebaseUser));
 
-      syncUserProfileToFirestore(firebaseUser)
-        .then((profileDoc) => {
-          if (!isCancelled) {
-            setUserProfileDoc(profileDoc);
-          }
-        })
-        .catch((error) => {
+      syncUserProfile(firebaseUser, {
+        onError: (error) => {
           console.error("Failed to sync user profile to Firestore:", error);
           if (!isCancelled) {
             showToast("사용자 프로필을 저장하지 못했어요");
           }
-        });
+        },
+      });
     });
 
     return () => {
       isCancelled = true;
       unsubscribeAuth();
     };
-  }, [setAuthUser, setUserProfileDoc, showToast]);
-
-  // 2. 로그인된 사용자에 한해 users/{uid} 및 users/{uid}/links 실시간 구독
-  useEffect(() => {
-    if (!uid) {
-      return;
-    }
-
-    let isCancelled = false;
-    setLinksLoading(true);
-
-    const unsubscribeProfile = subscribeToUserProfile(
-      uid,
-      (profileDoc) => {
-        if (!isCancelled && profileDoc) {
-          setUserProfileDoc(profileDoc);
-        }
-      },
-      (error) => {
-        console.error("Failed to subscribe to user profile:", error);
-      }
-    );
-
-    const unsubscribeLinks = subscribeToUserLinks(
-      uid,
-      (links) => {
-        if (!isCancelled) {
-          setFirestoreLinks(links);
-        }
-      },
-      (error) => {
-        console.error("Failed to subscribe to user Firestore links:", error);
-        if (!isCancelled) {
-          setLinksLoading(false);
-          showToast("링크 목록을 불러오지 못했어요");
-        }
-      }
-    );
-
-    return () => {
-      isCancelled = true;
-      unsubscribeProfile();
-      unsubscribeLinks();
-    };
-  }, [uid, setLinksLoading, setUserProfileDoc, setFirestoreLinks, showToast]);
+  }, [queryClient, setAuthUser, syncUserProfile, showToast]);
 
   const handleLinkClick = (title: string) => {
     showToast(`${title}(으)로 이동해요`);
@@ -192,7 +135,6 @@ export default function HomePage() {
               <LinkAddDialog
                 onSuccess={(link) => {
                   showToast(`${link.title} 링크를 저장했어요`);
-                  void refreshLinks();
                 }}
               >
                 <Button className="w-full h-[52px] rounded-2xl bg-[#3182F6] hover:bg-[#1B64DA] text-white font-bold active:scale-[0.98] shadow-sm transition-transform cursor-pointer">
@@ -203,10 +145,25 @@ export default function HomePage() {
 
             {/* Personalized Link List (users/{uid}/links) */}
             <div className="mt-2">
-              {linksLoading ? (
+              {isLinksLoading ? (
                 <div className="space-y-3 pt-2">
                   <div className="h-[74px] w-full animate-pulse rounded-2xl bg-white border border-[#E5E8EB]" />
                   <div className="h-[74px] w-full animate-pulse rounded-2xl bg-white border border-[#E5E8EB]" />
+                </div>
+              ) : isLinksError ? (
+                <div className="rounded-2xl border border-[#E5E8EB] bg-white p-5 text-center">
+                  <p className="text-[14px] font-medium text-[#4E5968]">
+                    링크 목록을 불러오지 못했어요.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void refetchLinks()}
+                    className="mt-3 rounded-xl border-[#E5E8EB] text-[13px] font-semibold text-[#333D4B] hover:bg-[#F2F4F6] cursor-pointer"
+                  >
+                    다시 시도
+                  </Button>
                 </div>
               ) : (
                 <LinkList

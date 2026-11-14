@@ -12,7 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { addLinkToFirestore } from "@/lib/firestore-links";
+import { useAddLinkMutation } from "@/lib/use-mylink-queries";
 import { linkSchema, type LinkFormValues } from "@/lib/link-schema";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
 import { LinkItem } from "@/types/mylink";
@@ -27,7 +27,7 @@ export function LinkAddDialog({ children, onSuccess }: LinkAddDialogProps) {
   const [open, setOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const uid = useMyLinkStore((state) => state.user?.uid);
-  const addFirestoreLink = useMyLinkStore((state) => state.addFirestoreLink);
+  const addLinkMutation = useAddLinkMutation(uid);
 
   const {
     register,
@@ -44,6 +44,8 @@ export function LinkAddDialog({ children, onSuccess }: LinkAddDialogProps) {
     },
   });
 
+  const isPending = isSubmitting || addLinkMutation.isPending;
+
   const onSubmit = async (data: LinkFormValues) => {
     setSubmitError(null);
     if (!uid) {
@@ -52,14 +54,13 @@ export function LinkAddDialog({ children, onSuccess }: LinkAddDialogProps) {
     }
 
     try {
-      const createdLink = await addLinkToFirestore(uid, {
+      const createdLink = await addLinkMutation.mutateAsync({
         title: data.title,
         url: data.url,
         description: data.description,
         icon: data.icon,
       });
 
-      addFirestoreLink(createdLink);
       setOpen(false);
       reset();
       onSuccess?.(createdLink);
@@ -86,7 +87,7 @@ export function LinkAddDialog({ children, onSuccess }: LinkAddDialogProps) {
           <LinkFormFields
             register={register}
             errors={errors}
-            disabled={isSubmitting}
+            disabled={isPending}
             idPrefix="add-link"
           />
           {submitError && (
@@ -95,10 +96,10 @@ export function LinkAddDialog({ children, onSuccess }: LinkAddDialogProps) {
           <DialogFooter className="mt-2">
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isPending}
               className="w-full bg-[#3182F6] hover:bg-[#1B64DA] text-white font-bold h-[52px] rounded-2xl active:scale-[0.98] shadow-sm transition-transform disabled:opacity-60"
             >
-              {isSubmitting ? "저장 중..." : "추가하기"}
+              {isPending ? "저장 중..." : "추가하기"}
             </Button>
           </DialogFooter>
         </form>

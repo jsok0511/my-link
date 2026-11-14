@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { deleteLinkFromFirestore } from "@/lib/firestore-links";
+import { useDeleteLinkMutation } from "@/lib/use-mylink-queries";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
 import type { LinkItem } from "@/types/mylink";
 
@@ -24,10 +24,10 @@ export function LinkDeleteDialog({
   onClose,
   onSuccess,
 }: LinkDeleteDialogProps) {
-  const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const uid = useMyLinkStore((state) => state.user?.uid);
-  const deleteBlock = useMyLinkStore((state) => state.deleteBlock);
+  const deleteLinkMutation = useDeleteLinkMutation(uid);
+  const isDeleting = deleteLinkMutation.isPending;
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen && !isDeleting) {
@@ -44,17 +44,13 @@ export function LinkDeleteDialog({
     }
 
     setDeleteError(null);
-    setIsDeleting(true);
     try {
-      await deleteLinkFromFirestore(uid, link.id);
-      deleteBlock(link.id);
+      await deleteLinkMutation.mutateAsync(link.id);
       onSuccess?.(link);
       onClose();
     } catch (error) {
       console.error("Failed to delete link from Firestore:", error);
       setDeleteError("링크 삭제 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.");
-    } finally {
-      setIsDeleting(false);
     }
   };
 

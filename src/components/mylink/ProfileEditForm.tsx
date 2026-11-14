@@ -9,12 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  checkDisplayNameAvailability,
   DuplicateDisplayNameError,
   MAX_DISPLAY_NAME_LENGTH,
-  updateUserProfileInFirestore,
 } from "@/lib/firestore-users";
-import { useMyLinkStore } from "@/store/useMyLinkStore";
+import {
+  useCheckDisplayNameMutation,
+  useCurrentUserProfileData,
+  useUpdateUserProfileMutation,
+} from "@/lib/use-mylink-queries";
 
 const profileSchema = z.object({
   displayName: z
@@ -58,14 +60,13 @@ export function ProfileEditForm({
   onSubmittingChange,
 }: ProfileEditFormProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkState, setCheckState] = useState<NameCheckState>({ status: "idle" });
 
-  const user = useMyLinkStore((state) => state.user);
-  const profile = useMyLinkStore((state) => state.profile);
-  const userProfileDoc = useMyLinkStore((state) => state.userProfileDoc);
-  const setUserProfileDoc = useMyLinkStore((state) => state.setUserProfileDoc);
+  const { user, profile } = useCurrentUserProfileData();
+  const checkDisplayNameMutation = useCheckDisplayNameMutation(user?.uid);
+  const updateProfileMutation = useUpdateUserProfileMutation(user?.uid);
 
+  const isSubmitting = updateProfileMutation.isPending;
   const initialDisplayName = (profile.displayName || user?.displayName || "").trim();
 
   const {
@@ -93,12 +94,8 @@ export function ProfileEditForm({
       ? checkState
       : { status: "idle" as const };
 
-  const isChecking = activeCheck.status === "checking";
-
-  const updateSubmitting = (submitting: boolean) => {
-    setIsSubmitting(submitting);
-    onSubmittingChange?.(submitting);
-  };
+  const isChecking =
+    activeCheck.status === "checking" || checkDisplayNameMutation.isPending;
 
   const handleCheckDuplicate = async () => {
     setSubmitError(null);
@@ -111,7 +108,7 @@ export function ProfileEditForm({
     setCheckState({ status: "checking", targetName });
 
     try {
-      const result = await checkDisplayNameAvailability(targetName, user?.uid);
+      const result = await checkDisplayNameMutation.mutateAsync(targetName);
       if (result.available) {
         clearErrors("displayName");
         setCheckState({
@@ -162,19 +159,11 @@ export function ProfileEditForm({
       }
     }
 
-    updateSubmitting(true);
+    onSubmittingChange?.(true);
     try {
-      await updateUserProfileInFirestore(user.uid, {
+      await updateProfileMutation.mutateAsync({
         displayName: trimmedName,
         bio: trimmedBio,
-      });
-
-      setUserProfileDoc({
-        uid: user.uid,
-        displayName: trimmedName,
-        email: userProfileDoc?.email ?? user.email,
-        photoURL: userProfileDoc?.photoURL ?? user.photoURL,
-        bio: trimmedBio || undefined,
       });
 
       onSuccess?.();
@@ -190,7 +179,7 @@ export function ProfileEditForm({
         setSubmitError("프로필 저장 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.");
       }
     } finally {
-      updateSubmitting(false);
+      onSubmittingChange?.(false);
     }
   };
 
