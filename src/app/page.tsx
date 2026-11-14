@@ -182,6 +182,8 @@ export default function HomePage() {
             {/* Authenticated User Profile Hero (from users/{uid}) */}
             <ProfileHero
               profile={profile}
+              editable
+              onProfileUpdated={() => showToast("프로필을 수정했어요")}
               onSocialClick={handleSocialClick}
             />
 
