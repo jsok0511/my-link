@@ -13,3 +13,5 @@ export * from "./LinkDeleteDialog";
 export * from "./LinkFormFields";
 export * from "./GoogleIcon";
 export * from "./LoginRequiredCard";
+export * from "./ProfileDropdown";
+export * from "./ProfileEditDialog";

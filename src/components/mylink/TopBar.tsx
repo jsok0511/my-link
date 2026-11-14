@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { Share2, Check, LogOut } from "lucide-react";
+import { Share2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
 import { useGoogleAuth } from "@/lib/use-google-auth";
 import { GoogleIcon } from "./GoogleIcon";
+import { ProfileDropdown } from "./ProfileDropdown";
 
 interface TopBarProps {
   onShowToast: (msg: string) => void;
@@ -17,9 +17,7 @@ export function TopBar({ onShowToast, className = "" }: TopBarProps) {
   const [copied, setCopied] = useState(false);
   const user = useMyLinkStore((state) => state.user);
   const authLoading = useMyLinkStore((state) => state.authLoading);
-  const { isSigningIn, isSigningOut, handleSignIn, handleSignOut } = useGoogleAuth({
-    onShowToast,
-  });
+  const { isSigningIn, handleSignIn } = useGoogleAuth({ onShowToast });
 
   const handleShare = async () => {
     try {
@@ -56,7 +54,7 @@ export function TopBar({ onShowToast, className = "" }: TopBarProps) {
           </span>
         </div>
 
-        {/* Right Actions: Share + Auth */}
+        {/* Right Actions: Share + Auth / Profile Dropdown */}
         <div className="flex items-center gap-1.5">
           {/* Share Button */}
           <Button
@@ -85,39 +83,7 @@ export function TopBar({ onShowToast, className = "" }: TopBarProps) {
               className="h-8 w-20 animate-pulse rounded-xl bg-[#E5E8EB]"
             />
           ) : user ? (
-            <div className="flex items-center gap-1.5">
-              <div className="flex h-8 items-center gap-1.5 rounded-xl border border-[#E5E8EB] bg-white pl-1.5 pr-2.5">
-                <Avatar className="h-5 w-5 rounded-full">
-                  {user.photoURL ? (
-                    <AvatarImage
-                      src={user.photoURL}
-                      alt={user.displayName}
-                      className="object-cover"
-                    />
-                  ) : null}
-                  <AvatarFallback className="bg-[#E8F3FF] text-[10px] font-bold text-[#3182F6]">
-                    {user.displayName.slice(0, 1)}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="max-w-[76px] truncate text-[12px] font-semibold text-[#333D4B]">
-                  {user.displayName}
-                </span>
-              </div>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={isSigningOut}
-                onClick={handleSignOut}
-                aria-label="로그아웃"
-                title="로그아웃"
-                className="flex h-8 items-center gap-1 rounded-xl px-2 text-[12px] font-medium text-[#6B7684] hover:bg-[#F2F4F6] hover:text-[#191F28] active:scale-95 transition-all cursor-pointer"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">로그아웃</span>
-              </Button>
-            </div>
+            <ProfileDropdown onShowToast={onShowToast} onShare={handleShare} />
           ) : (
             <Button
               type="button"

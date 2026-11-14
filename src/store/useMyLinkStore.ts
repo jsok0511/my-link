@@ -88,7 +88,7 @@ export const useMyLinkStore = create<MyLinkState>()((set) => ({
             username: userProfileDoc.email,
             avatarUrl: userProfileDoc.photoURL,
             avatarFallback: userProfileDoc.displayName.slice(0, 2),
-            bio: userProfileDoc.bio ?? state.profile.bio,
+            bio: userProfileDoc.bio ?? "",
           }
         : state.profile,
     })),

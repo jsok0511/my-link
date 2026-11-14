@@ -41,17 +41,28 @@ function mapDocToUserProfile(uid: string, data: DocumentData): UserProfileDoc {
   };
 }
 
+export interface UpdateUserProfileInput {
+  displayName: string;
+  bio?: string;
+}
+
 /**
  * Syncs the authenticated Google user's profile fields into `users/{uid}` in Firestore.
- * Preserves existing fields such as `createdAt` or custom `bio`.
+ * Preserves existing fields such as `createdAt`, custom `displayName`, or custom `bio`.
  */
 export async function syncUserProfileToFirestore(user: User): Promise<UserProfileDoc> {
   const userRef = getUserDocRef(user.uid);
   const existingSnap = await getDoc(userRef);
+  const existingData = existingSnap.exists() ? existingSnap.data() : {};
 
   const email = user.email ?? "";
   const fallbackName = email ? email.split("@")[0] : "사용자";
-  const displayName = user.displayName?.trim() || fallbackName;
+  const authDisplayName = user.displayName?.trim() || fallbackName;
+  const existingDisplayName =
+    typeof existingData.displayName === "string" && existingData.displayName.trim().length > 0
+      ? existingData.displayName.trim()
+      : undefined;
+  const displayName = existingDisplayName ?? authDisplayName;
   const photoURL = user.photoURL ?? "";
 
   const basePayload: Record<string, unknown> = {
@@ -68,7 +79,6 @@ export async function syncUserProfileToFirestore(user: User): Promise<UserProfil
 
   await setDoc(userRef, basePayload, { merge: true });
 
-  const existingData = existingSnap.exists() ? existingSnap.data() : {};
   return {
     uid: user.uid,
     displayName,
@@ -79,6 +89,26 @@ export async function syncUserProfileToFirestore(user: User): Promise<UserProfil
         ? existingData.bio.trim()
         : undefined,
   };
+}
+
+/**
+ * Updates editable profile fields (`displayName`, `bio`) in `users/{uid}`.
+ */
+export async function updateUserProfileInFirestore(
+  uid: string,
+  input: UpdateUserProfileInput
+): Promise<void> {
+  const userRef = getUserDocRef(uid);
+  await setDoc(
+    userRef,
+    {
+      uid,
+      displayName: input.displayName.trim(),
+      bio: input.bio?.trim() ?? "",
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
 }
 
 /**
