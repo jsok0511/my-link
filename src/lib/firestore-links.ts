@@ -1,11 +1,15 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
+  updateDoc,
   type DocumentData,
   type QueryDocumentSnapshot,
   type QuerySnapshot,
@@ -14,8 +18,6 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { LinkItem } from "@/types/mylink";
-
-export const ANONYMOUS_LINKS_PATH = ["users", "anonymous", "links"] as const;
 
 export interface CreateLinkInput {
   title: string;
@@ -26,12 +28,26 @@ export interface CreateLinkInput {
   category?: LinkItem["category"];
 }
 
-function getAnonymousLinksCollection() {
-  return collection(db, ...ANONYMOUS_LINKS_PATH);
+export type UpdateLinkInput = CreateLinkInput;
+
+function requireUid(uid: string): string {
+  const trimmed = uid.trim();
+  if (!trimmed) {
+    throw new Error("로그인이 필요합니다.");
+  }
+  return trimmed;
 }
 
-function getAnonymousLinksQuery() {
-  return query(getAnonymousLinksCollection(), orderBy("createdAt", "desc"));
+function getUserLinksCollection(uid: string) {
+  return collection(db, "users", requireUid(uid), "links");
+}
+
+function getUserLinkDoc(uid: string, id: string) {
+  return doc(db, "users", requireUid(uid), "links", id);
+}
+
+function getUserLinksQuery(uid: string) {
+  return query(getUserLinksCollection(uid), orderBy("createdAt", "desc"));
 }
 
 function toTimestampMillis(value: unknown): number {
@@ -92,21 +108,14 @@ function mapSnapshotToLinks(snapshot: QuerySnapshot<DocumentData>): LinkItem[] {
   return linksWithOrder.map((entry) => entry.link);
 }
 
-/**
- * Saves a new link document to Firestore at `users/anonymous/links`.
- */
-export async function addLinkToFirestore(input: CreateLinkInput): Promise<LinkItem> {
-  const icon = input.icon?.trim() || "Link";
-  const description = input.description?.trim() || "";
-
+function buildLinkPayload(input: CreateLinkInput): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     type: "link",
     title: input.title.trim(),
     url: input.url.trim(),
-    description,
-    icon,
+    description: input.description?.trim() || "",
+    icon: input.icon?.trim() || "Link",
     enabled: true,
-    createdAt: serverTimestamp(),
   };
 
   if (input.badge) {
@@ -116,15 +125,18 @@ export async function addLinkToFirestore(input: CreateLinkInput): Promise<LinkIt
     payload.category = input.category;
   }
 
-  const docRef = await addDoc(getAnonymousLinksCollection(), payload);
+  return payload;
+}
 
+function buildLinkItem(id: string, input: CreateLinkInput): LinkItem {
+  const description = input.description?.trim() || "";
   return {
-    id: docRef.id,
+    id,
     type: "link",
     title: input.title.trim(),
     url: input.url.trim(),
     description: description || undefined,
-    icon,
+    icon: input.icon?.trim() || "Link",
     badge: input.badge,
     category: input.category,
     enabled: true,
@@ -132,22 +144,89 @@ export async function addLinkToFirestore(input: CreateLinkInput): Promise<LinkIt
 }
 
 /**
- * Fetches links stored under `users/anonymous/links` ordered by `createdAt` descending (newest first).
+ * Saves a new link document to Firestore at `users/{uid}/links`.
  */
-export async function fetchAnonymousLinks(): Promise<LinkItem[]> {
-  const snapshot = await getDocs(getAnonymousLinksQuery());
+export async function addLinkToFirestore(
+  uid: string,
+  input: CreateLinkInput
+): Promise<LinkItem> {
+  const payload = {
+    ...buildLinkPayload(input),
+    createdAt: serverTimestamp(),
+  };
+
+  const docRef = await addDoc(getUserLinksCollection(uid), payload);
+  return buildLinkItem(docRef.id, input);
+}
+
+/**
+ * Updates an existing link document in Firestore at `users/{uid}/links/{id}`.
+ * Falls back to `setDoc` if the document does not exist yet.
+ */
+export async function updateLinkInFirestore(
+  uid: string,
+  id: string,
+  input: UpdateLinkInput
+): Promise<LinkItem> {
+  const docRef = getUserLinkDoc(uid, id);
+  const updatePayload = {
+    title: input.title.trim(),
+    url: input.url.trim(),
+    description: input.description?.trim() || "",
+    icon: input.icon?.trim() || "Link",
+    updatedAt: serverTimestamp(),
+  };
+
+  try {
+    await updateDoc(docRef, updatePayload);
+  } catch (error) {
+    const firebaseCode =
+      typeof error === "object" && error !== null && "code" in error
+        ? (error as { code?: unknown }).code
+        : undefined;
+    if (firebaseCode === "not-found") {
+      await setDoc(
+        docRef,
+        {
+          ...buildLinkPayload(input),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } else {
+      throw error;
+    }
+  }
+
+  return buildLinkItem(id, input);
+}
+
+/**
+ * Deletes a link document from Firestore at `users/{uid}/links/{id}`.
+ */
+export async function deleteLinkFromFirestore(uid: string, id: string): Promise<void> {
+  await deleteDoc(getUserLinkDoc(uid, id));
+}
+
+/**
+ * Fetches links stored under `users/{uid}/links` ordered by `createdAt` descending (newest first).
+ */
+export async function fetchUserLinks(uid: string): Promise<LinkItem[]> {
+  const snapshot = await getDocs(getUserLinksQuery(uid));
   return mapSnapshotToLinks(snapshot);
 }
 
 /**
- * Subscribes to links stored under `users/anonymous/links` ordered by `createdAt` descending (newest first).
+ * Subscribes to links stored under `users/{uid}/links` ordered by `createdAt` descending (newest first).
  */
-export function subscribeToAnonymousLinks(
+export function subscribeToUserLinks(
+  uid: string,
   onLinks: (links: LinkItem[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe {
   return onSnapshot(
-    getAnonymousLinksQuery(),
+    getUserLinksQuery(uid),
     (snapshot) => {
       onLinks(mapSnapshotToLinks(snapshot));
     },

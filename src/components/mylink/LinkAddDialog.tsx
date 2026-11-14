@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import {
   Dialog,
   DialogContent,
@@ -13,20 +12,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { addLinkToFirestore } from "@/lib/firestore-links";
+import { linkSchema, type LinkFormValues } from "@/lib/link-schema";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
 import { LinkItem } from "@/types/mylink";
-
-const linkSchema = z.object({
-  title: z.string().trim().min(2, "제목은 2자 이상 입력해 주세요."),
-  url: z.string().trim().url("올바른 URL 형식(http:// 또는 https:// 포함)으로 입력해 주세요."),
-  description: z.string().trim().optional(),
-  icon: z.string().trim().optional(),
-});
-
-type LinkFormValues = z.infer<typeof linkSchema>;
+import { LinkFormFields } from "./LinkFormFields";
 
 interface LinkAddDialogProps {
   children: React.ReactElement;
@@ -36,6 +26,7 @@ interface LinkAddDialogProps {
 export function LinkAddDialog({ children, onSuccess }: LinkAddDialogProps) {
   const [open, setOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const uid = useMyLinkStore((state) => state.user?.uid);
   const addFirestoreLink = useMyLinkStore((state) => state.addFirestoreLink);
 
   const {
@@ -55,8 +46,13 @@ export function LinkAddDialog({ children, onSuccess }: LinkAddDialogProps) {
 
   const onSubmit = async (data: LinkFormValues) => {
     setSubmitError(null);
+    if (!uid) {
+      setSubmitError("로그인 후 링크를 추가할 수 있어요.");
+      return;
+    }
+
     try {
-      const createdLink = await addLinkToFirestore({
+      const createdLink = await addLinkToFirestore(uid, {
         title: data.title,
         url: data.url,
         description: data.description,
@@ -87,49 +83,12 @@ export function LinkAddDialog({ children, onSuccess }: LinkAddDialogProps) {
           <DialogTitle className="text-[20px] font-bold text-[#191F28] tracking-tight">새 링크 추가하기</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4" noValidate>
-          <div className="grid gap-2">
-            <Label htmlFor="title" className="text-[13px] font-medium text-[#4E5968]">제목</Label>
-            <Input
-              id="title"
-              placeholder="예: 내 포트폴리오"
-              disabled={isSubmitting}
-              className={`rounded-xl border-[#E5E8EB] focus-visible:ring-[#3182F6] ${errors.title ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
-              {...register("title")}
-            />
-            {errors.title && <p className="text-[12px] text-red-500">{errors.title.message}</p>}
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="url" className="text-[13px] font-medium text-[#4E5968]">URL</Label>
-            <Input
-              id="url"
-              type="url"
-              placeholder="https://..."
-              disabled={isSubmitting}
-              className={`rounded-xl border-[#E5E8EB] focus-visible:ring-[#3182F6] ${errors.url ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
-              {...register("url")}
-            />
-            {errors.url && <p className="text-[12px] text-red-500">{errors.url.message}</p>}
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="description" className="text-[13px] font-medium text-[#4E5968]">설명 (선택)</Label>
-            <Input
-              id="description"
-              placeholder="링크에 대한 간단한 설명"
-              disabled={isSubmitting}
-              className="rounded-xl border-[#E5E8EB] focus-visible:ring-[#3182F6]"
-              {...register("description")}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="icon" className="text-[13px] font-medium text-[#4E5968]">아이콘 이름 (선택)</Label>
-            <Input
-              id="icon"
-              placeholder="예: Github, FileText"
-              disabled={isSubmitting}
-              className="rounded-xl border-[#E5E8EB] focus-visible:ring-[#3182F6]"
-              {...register("icon")}
-            />
-          </div>
+          <LinkFormFields
+            register={register}
+            errors={errors}
+            disabled={isSubmitting}
+            idPrefix="add-link"
+          />
           {submitError && (
             <p className="text-[12px] text-red-500" role="alert">{submitError}</p>
           )}

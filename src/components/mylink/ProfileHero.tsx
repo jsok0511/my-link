@@ -13,6 +13,12 @@ interface ProfileHeroProps {
 }
 
 export function ProfileHero({ profile, onSocialClick, className = "" }: ProfileHeroProps) {
+  const handleText = profile.username
+    ? profile.username.includes("@")
+      ? profile.username
+      : `@${profile.username}`
+    : "";
+
   return (
     <section className={`flex flex-col items-center text-center pt-6 pb-4 px-4 ${className}`}>
       {/* 88x88 Avatar */}
@@ -31,20 +37,20 @@ export function ProfileHero({ profile, onSocialClick, className = "" }: ProfileH
         </Avatar>
       </div>
 
-      {/* Name & Username Handle */}
+      {/* Name & Email/Handle */}
       <h1 className="text-[20px] font-bold tracking-tight text-[#191F28]">
         {profile.displayName}
       </h1>
-      <p className="mt-0.5 text-[13px] font-normal text-[#8B95A1]">
-        @{profile.username.replace(/^@/, "")}
-      </p>
-
-      {/* Bio Description */}
-      {profile.bio && (
-        <p className="mt-2.5 max-w-sm text-[15px] leading-relaxed text-[#4E5968] break-keep px-2">
-          {profile.bio}
+      {handleText && (
+        <p className="mt-0.5 text-[13px] font-normal text-[#8B95A1]">
+          {handleText}
         </p>
       )}
+
+      {/* Bio Description */}
+      <p className="mt-2.5 max-w-sm text-[15px] leading-relaxed text-[#4E5968] break-keep px-2">
+        {profile.bio || "나만의 링크를 한곳에 모아 관리하고 공유해 보세요."}
+      </p>
 
       {/* Tags Badges */}
       {profile.tags && profile.tags.length > 0 && (

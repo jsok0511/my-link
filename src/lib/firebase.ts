@@ -1,5 +1,6 @@
 import { getApp, getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig: FirebaseOptions = {
@@ -16,6 +17,17 @@ const firebaseConfig: FirebaseOptions = {
  * Reuses an existing Firebase app instance across Next.js HMR reloads and SSR.
  */
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+
+/**
+ * Shared Firebase Authentication instance.
+ */
+export const auth = getAuth(app);
+
+/**
+ * Shared Google Auth Provider configured to show account chooser.
+ */
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: "select_account" });
 
 /**
  * Shared Cloud Firestore instance.

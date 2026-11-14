@@ -1,12 +1,32 @@
 import { create } from "zustand";
+import type { AuthUserSummary } from "@/lib/firebase-auth";
+import type { UserProfileDoc } from "@/lib/firestore-users";
 import { ProfileData, ContentBlock, LinkItem } from "@/types/mylink";
-import { defaultProfile } from "@/data/defaultProfile";
+
+const EMPTY_PROFILE: ProfileData = {
+  username: "",
+  displayName: "",
+  bio: "",
+  avatarUrl: "",
+  avatarFallback: "",
+  tags: [],
+  socials: [],
+  blocks: [],
+};
 
 export interface MyLinkState {
+  user: AuthUserSummary | null;
+  authLoading: boolean;
+  linksLoading: boolean;
+  userProfileDoc: UserProfileDoc | null;
   profile: ProfileData;
   isHydrated: boolean;
   firestoreLinkIds: string[];
   setHydrated: (state: boolean) => void;
+  setAuthUser: (user: AuthUserSummary | null) => void;
+  setAuthLoading: (loading: boolean) => void;
+  setLinksLoading: (loading: boolean) => void;
+  setUserProfileDoc: (doc: UserProfileDoc | null) => void;
   setProfile: (profile: Partial<ProfileData>) => void;
   addBlock: (block: ContentBlock) => void;
   addFirestoreLink: (link: LinkItem) => void;
@@ -18,10 +38,60 @@ export interface MyLinkState {
 }
 
 export const useMyLinkStore = create<MyLinkState>()((set) => ({
-  profile: defaultProfile,
+  user: null,
+  authLoading: true,
+  linksLoading: false,
+  userProfileDoc: null,
+  profile: EMPTY_PROFILE,
   isHydrated: true,
   firestoreLinkIds: [],
   setHydrated: (val) => set({ isHydrated: val }),
+  setAuthUser: (user) =>
+    set((state) => {
+      if (!user) {
+        return {
+          user: null,
+          authLoading: false,
+          linksLoading: false,
+          userProfileDoc: null,
+          firestoreLinkIds: [],
+          profile: EMPTY_PROFILE,
+        };
+      }
+      const isSameUser = state.user?.uid === user.uid;
+      return {
+        user,
+        authLoading: false,
+        linksLoading: isSameUser ? state.linksLoading : true,
+        userProfileDoc: isSameUser ? state.userProfileDoc : null,
+        firestoreLinkIds: isSameUser ? state.firestoreLinkIds : [],
+        profile: isSameUser
+          ? state.profile
+          : {
+              ...EMPTY_PROFILE,
+              displayName: user.displayName,
+              username: user.email,
+              avatarUrl: user.photoURL,
+              avatarFallback: user.displayName.slice(0, 2),
+            },
+      };
+    }),
+  setAuthLoading: (authLoading) => set({ authLoading }),
+  setLinksLoading: (linksLoading) => set({ linksLoading }),
+  setUserProfileDoc: (userProfileDoc) =>
+    set((state) => ({
+      userProfileDoc,
+      profile: userProfileDoc
+        ? {
+            ...state.profile,
+            displayName: userProfileDoc.displayName,
+            username: userProfileDoc.email,
+            avatarUrl: userProfileDoc.photoURL,
+            avatarFallback: userProfileDoc.displayName.slice(0, 2),
+            bio: userProfileDoc.bio ?? state.profile.bio,
+          }
+        : state.profile,
+    })),
   setProfile: (updated) =>
     set((state) => ({
       profile: { ...state.profile, ...updated },
@@ -56,23 +126,14 @@ export const useMyLinkStore = create<MyLinkState>()((set) => ({
       };
     }),
   setFirestoreLinks: (links) =>
-    set((state) => {
-      const previousRemoteIds = new Set(state.firestoreLinkIds);
-      const nextRemoteIds = links.map((link) => link.id);
-      const nextRemoteIdSet = new Set(nextRemoteIds);
-
-      const baseBlocks = state.profile.blocks.filter(
-        (block) => !previousRemoteIds.has(block.id) && !nextRemoteIdSet.has(block.id)
-      );
-
-      return {
-        firestoreLinkIds: nextRemoteIds,
-        profile: {
-          ...state.profile,
-          blocks: [...links, ...baseBlocks],
-        },
-      };
-    }),
+    set((state) => ({
+      linksLoading: false,
+      firestoreLinkIds: links.map((link) => link.id),
+      profile: {
+        ...state.profile,
+        blocks: links,
+      },
+    })),
   updateBlock: (id, updated) =>
     set((state) => ({
       profile: {
@@ -84,6 +145,7 @@ export const useMyLinkStore = create<MyLinkState>()((set) => ({
     })),
   deleteBlock: (id) =>
     set((state) => ({
+      firestoreLinkIds: state.firestoreLinkIds.filter((fid) => fid !== id),
       profile: {
         ...state.profile,
         blocks: state.profile.blocks.filter((b) => b.id !== id),
@@ -95,7 +157,7 @@ export const useMyLinkStore = create<MyLinkState>()((set) => ({
     })),
   resetToDefault: () =>
     set({
-      profile: defaultProfile,
+      profile: EMPTY_PROFILE,
       firestoreLinkIds: [],
     }),
 }));
