@@ -15,6 +15,7 @@ export interface LinkItem {
   badge?: string;
   category?: "dev" | "career" | "social" | "contact";
   enabled: boolean;
+  clickCount?: number;
 }
 
 export interface HeaderItem {

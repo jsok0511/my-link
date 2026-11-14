@@ -11,7 +11,7 @@ interface LinkListProps {
   blocks: ContentBlock[];
   editable?: boolean;
   emptyMessage?: string;
-  onLinkClick?: (title: string, url: string) => void;
+  onLinkClick?: (title: string, url: string, id: string) => void;
   onLinkUpdated?: (link: LinkItem) => void;
   onLinkDeleted?: (link: LinkItem) => void;
   showCategoryFilter?: boolean;
@@ -100,6 +100,7 @@ export function LinkList({
                 icon={link.icon}
                 badge={link.badge}
                 category={link.category}
+                clickCount={link.clickCount ?? 0}
                 editable={editable}
                 isEditing={editable && editingId === link.id}
                 onClick={onLinkClick}

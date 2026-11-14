@@ -7,6 +7,7 @@ import {
   addLinkToFirestore,
   deleteLinkFromFirestore,
   fetchUserLinks,
+  incrementLinkClickInFirestore,
   updateLinkInFirestore,
   type CreateLinkInput,
   type UpdateLinkInput,
@@ -242,7 +243,11 @@ export function useUpdateLinkMutation(uid?: string) {
     onSuccess: async (updatedLink) => {
       if (!uid) return;
       queryClient.setQueryData<LinkItem[]>(myLinkKeys.links(uid), (prev) =>
-        (prev ?? []).map((item) => (item.id === updatedLink.id ? updatedLink : item))
+        (prev ?? []).map((item) =>
+          item.id === updatedLink.id
+            ? { ...updatedLink, clickCount: item.clickCount ?? updatedLink.clickCount ?? 0 }
+            : item
+        )
       );
       await queryClient.invalidateQueries({ queryKey: myLinkKeys.links(uid) });
     },
@@ -269,6 +274,54 @@ export function useDeleteLinkMutation(uid?: string) {
         (prev ?? []).filter((item) => item.id !== deletedId)
       );
       await queryClient.invalidateQueries({ queryKey: myLinkKeys.links(uid) });
+    },
+  });
+}
+
+/**
+ * Atomically increments a link's `clickCount` in Firestore with optimistic cache update.
+ */
+export function useIncrementLinkClickMutation(uid?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!uid) {
+        throw new Error("유효한 사용자 정보가 필요합니다.");
+      }
+      await incrementLinkClickInFirestore(uid, id);
+      return id;
+    },
+    onMutate: async (id) => {
+      if (!uid) {
+        return { previousLinks: undefined as LinkItem[] | undefined };
+      }
+
+      const linksKey = myLinkKeys.links(uid);
+      await queryClient.cancelQueries({ queryKey: linksKey });
+      const previousLinks = queryClient.getQueryData<LinkItem[]>(linksKey);
+
+      queryClient.setQueryData<LinkItem[]>(linksKey, (prev) =>
+        (prev ?? []).map((item) =>
+          item.id === id
+            ? { ...item, clickCount: (item.clickCount ?? 0) + 1 }
+            : item
+        )
+      );
+
+      return { previousLinks };
+    },
+    onError: (error, _id, context) => {
+      console.warn("Failed to increment link click count:", error);
+      if (!uid || !context) return;
+      queryClient.setQueryData<LinkItem[] | undefined>(
+        myLinkKeys.links(uid),
+        context.previousLinks
+      );
+    },
+    onSettled: () => {
+      if (!uid) return;
+      void queryClient.invalidateQueries({ queryKey: myLinkKeys.links(uid) });
     },
   });
 }

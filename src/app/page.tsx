@@ -2,7 +2,11 @@
 
 import React, { useCallback, useState, useSyncExternalStore } from "react";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
-import { useCurrentUserProfileData } from "@/lib/use-mylink-queries";
+import { getClickCountErrorMessage } from "@/lib/firestore-links";
+import {
+  useCurrentUserProfileData,
+  useIncrementLinkClickMutation,
+} from "@/lib/use-mylink-queries";
 import {
   TopBar,
   ProfileHero,
@@ -49,6 +53,7 @@ export default function HomePage() {
     refetchLinks,
   } = useCurrentUserProfileData();
 
+  const incrementClickMutation = useIncrementLinkClickMutation(user?.uid);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const hasMounted = useHasMounted();
 
@@ -56,8 +61,15 @@ export default function HomePage() {
     setToastMessage(message);
   }, []);
 
-  const handleLinkClick = (title: string) => {
+  const handleLinkClick = (title: string, _url: string, id: string) => {
     showToast(`${title}(으)로 이동해요`);
+    if (user?.uid && id) {
+      incrementClickMutation.mutate(id, {
+        onError: (error) => {
+          showToast(getClickCountErrorMessage(error));
+        },
+      });
+    }
   };
 
   const handleSocialClick = (platform: string) => {

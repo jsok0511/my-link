@@ -68,6 +68,7 @@ service cloud.firestore {
           'badge',
           'category',
           'enabled',
+          'clickCount',
           'createdAt',
           'updatedAt'
         ])
@@ -82,7 +83,15 @@ service cloud.firestore {
         && (!('icon' in data) || (data.icon is string && data.icon.size() <= 50))
         && (!('badge' in data) || (data.badge is string && data.badge.size() <= 30))
         && (!('category' in data) || data.category in ['dev', 'career', 'social', 'contact'])
-        && data.enabled is bool;
+        && data.enabled is bool
+        && (!('clickCount' in data) || (data.clickCount is int && data.clickCount >= 0));
+    }
+
+    // 누구나(비로그인 방문자 포함) 다른 필드 변경 없이 clickCount만 수정/증가 가능
+    function isValidLinkClickUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clickCount'])
+        && request.resource.data.clickCount is int
+        && request.resource.data.clickCount >= 0;
     }
 
     // =========================================================
@@ -106,11 +115,13 @@ service cloud.firestore {
         allow read: if true;
         allow create: if isOwner(userId)
           && isValidLinkDoc()
-          && request.resource.data.createdAt == request.time;
-        allow update: if isOwner(userId)
-          && isValidLinkDoc()
-          && (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt)
-          && request.resource.data.updatedAt == request.time;
+          && (!('clickCount' in request.resource.data) || request.resource.data.clickCount == 0)
+          && ('createdAt' in request.resource.data && request.resource.data.createdAt == request.time);
+        allow update: if isValidLinkClickUpdate()
+          || (isOwner(userId)
+            && isValidLinkDoc()
+            && (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt)
+            && ('updatedAt' in request.resource.data && request.resource.data.updatedAt == request.time));
         allow delete: if isOwner(userId);
       }
 

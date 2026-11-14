@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  increment,
   orderBy,
   query,
   serverTimestamp,
@@ -79,6 +80,13 @@ function getCreatedAtMillis(docSnap: QueryDocumentSnapshot<DocumentData>): numbe
   return docSnap.metadata.hasPendingWrites ? Date.now() : 0;
 }
 
+function parseClickCount(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    return Math.floor(value);
+  }
+  return 0;
+}
+
 function mapDocToLinkItem(id: string, data: DocumentData): LinkItem {
   return {
     id,
@@ -90,6 +98,7 @@ function mapDocToLinkItem(id: string, data: DocumentData): LinkItem {
     badge: typeof data.badge === "string" && data.badge.length > 0 ? data.badge : undefined,
     category: data.category,
     enabled: typeof data.enabled === "boolean" ? data.enabled : true,
+    clickCount: parseClickCount(data.clickCount),
   };
 }
 
@@ -114,6 +123,7 @@ function buildLinkPayload(input: CreateLinkInput): Record<string, unknown> {
     description: input.description?.trim() || "",
     icon: input.icon?.trim() || "Link",
     enabled: true,
+    clickCount: 0,
   };
 
   if (input.badge) {
@@ -126,7 +136,7 @@ function buildLinkPayload(input: CreateLinkInput): Record<string, unknown> {
   return payload;
 }
 
-function buildLinkItem(id: string, input: CreateLinkInput): LinkItem {
+function buildLinkItem(id: string, input: CreateLinkInput, clickCount = 0): LinkItem {
   const description = input.description?.trim() || "";
   return {
     id,
@@ -138,6 +148,7 @@ function buildLinkItem(id: string, input: CreateLinkInput): LinkItem {
     badge: input.badge,
     category: input.category,
     enabled: true,
+    clickCount,
   };
 }
 
@@ -205,6 +216,37 @@ export async function updateLinkInFirestore(
  */
 export async function deleteLinkFromFirestore(uid: string, id: string): Promise<void> {
   await deleteDoc(getUserLinkDoc(uid, id));
+}
+
+/**
+ * Atomically increments `clickCount` by 1 on `users/{uid}/links/{id}`.
+ */
+export async function incrementLinkClickInFirestore(
+  uid: string,
+  id: string
+): Promise<void> {
+  const trimmedId = id.trim();
+  if (!trimmedId) {
+    throw new Error("유효한 링크 ID가 필요합니다.");
+  }
+
+  await updateDoc(getUserLinkDoc(uid, trimmedId), {
+    clickCount: increment(1),
+  });
+}
+
+/**
+ * Returns a user-facing Korean message when saving a link click count fails.
+ */
+export function getClickCountErrorMessage(error: unknown): string {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+  if (code === "permission-denied") {
+    return "클릭 수 저장 권한이 없어요. Firebase 규칙을 확인해 주세요";
+  }
+  return "클릭 수를 저장하지 못했어요";
 }
 
 /**

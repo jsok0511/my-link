@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil, Trash2 } from "lucide-react";
+import { MousePointerClick, Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,10 +22,11 @@ export interface LinkCardProps {
   icon?: string;
   badge?: string;
   category?: LinkItem["category"];
+  clickCount?: number;
   isExternal?: boolean;
   editable?: boolean;
   isEditing?: boolean;
-  onClick?: (title: string, url: string) => void;
+  onClick?: (title: string, url: string, id: string) => void;
   onEditStart?: () => void;
   onEditCancel?: () => void;
   onEditSuccess?: (updatedLink: LinkItem) => void;
@@ -152,6 +153,7 @@ export function LinkCard({
   icon = "link",
   badge,
   category,
+  clickCount = 0,
   isExternal = true,
   editable = true,
   isEditing,
@@ -164,10 +166,14 @@ export function LinkCard({
 }: LinkCardProps) {
   const [internalEditing, setInternalEditing] = useState(false);
   const editing = editable && (isEditing !== undefined ? isEditing : internalEditing);
+  const normalizedClickCount =
+    typeof clickCount === "number" && Number.isFinite(clickCount) && clickCount >= 0
+      ? Math.floor(clickCount)
+      : 0;
 
   const handleClick = () => {
     if (onClick) {
-      onClick(title, url);
+      onClick(title, url, id);
     }
   };
 
@@ -237,7 +243,7 @@ export function LinkCard({
             />
           </div>
 
-          {/* Center: Title & Description */}
+          {/* Center: Title, Description & Click Count */}
           <div className="flex min-w-0 flex-1 flex-col justify-center">
             <div className="flex items-center gap-2">
               <span className="truncate text-[15px] sm:text-[16px] font-semibold text-[#191F28] transition-colors group-hover:text-[#191F28]">
@@ -257,6 +263,10 @@ export function LinkCard({
                 {description}
               </p>
             )}
+            <div className="mt-1 flex items-center gap-1 text-[12px] font-medium text-[#8B95A1] tabular-nums">
+              <MousePointerClick className="h-3.5 w-3.5 shrink-0 text-[#8B95A1]" aria-hidden="true" />
+              <span>클릭 {normalizedClickCount.toLocaleString("ko-KR")}회</span>
+            </div>
           </div>
         </a>
 
