@@ -1,9 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { Popover } from "@base-ui/react/popover";
 import {
   ChevronDown,
+  ExternalLink,
+  Home,
   Link2,
   LogOut,
   Pencil,
@@ -14,6 +18,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCurrentUserProfileData } from "@/lib/use-mylink-queries";
 import { useGoogleAuth } from "@/lib/use-google-auth";
+import { safeDecodeDisplayName } from "@/lib/firestore-users";
 import { ProfileEditDialog } from "./ProfileEditDialog";
 
 interface ProfileDropdownProps {
@@ -28,18 +33,32 @@ interface ProfileDropdownProps {
 export function ProfileDropdown({ onShowToast, onShare }: ProfileDropdownProps) {
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
 
-  const { user, profile } = useCurrentUserProfileData();
+  const { user, profile, profileDoc } = useCurrentUserProfileData();
   const { isSigningIn, isSigningOut, handleSignIn, handleSignOut } = useGoogleAuth({
     onShowToast,
   });
 
   if (!user) return null;
 
-  const displayName = profile.displayName || user.displayName;
+  const displayName = (
+    profileDoc?.displayName ||
+    profile.displayName ||
+    user.displayName
+  ).trim();
   const avatarUrl = profile.avatarUrl || user.photoURL;
   const email = profile.username || user.email;
   const bio = profile.bio;
+  const personalPageHref = displayName
+    ? `/${encodeURIComponent(displayName)}`
+    : null;
+  const isOnPersonalPage = Boolean(
+    displayName &&
+      safeDecodeDisplayName(pathname).toLowerCase() ===
+        `/${displayName.toLowerCase()}`
+  );
 
   const linkBlocks = profile.blocks.filter((b) => b.type === "link");
   const totalLinksCount = linkBlocks.length;
@@ -154,6 +173,31 @@ export function ProfileDropdown({ onShowToast, onShare }: ProfileDropdownProps) 
 
               {/* 3. Action Menu Buttons */}
               <div className="mt-2 space-y-0.5">
+                {personalPageHref && (
+                  <Link
+                    href={personalPageHref}
+                    onClick={() => setOpen(false)}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium text-[#333D4B] transition-colors hover:bg-[#F2F4F6] hover:text-[#191F28] no-underline"
+                  >
+                    <ExternalLink className="h-4 w-4 text-[#3182F6]" />
+                    <span>내 페이지로 이동</span>
+                    <span className="ml-auto max-w-[96px] truncate text-[11px] text-[#8B95A1]">
+                      /{displayName}
+                    </span>
+                  </Link>
+                )}
+
+                {pathname !== "/" && (
+                  <Link
+                    href="/"
+                    onClick={() => setOpen(false)}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13px] font-medium text-[#333D4B] transition-colors hover:bg-[#F2F4F6] hover:text-[#191F28] no-underline"
+                  >
+                    <Home className="h-4 w-4 text-[#6B7684]" />
+                    <span>내 링크 관리</span>
+                  </Link>
+                )}
+
                 <button
                   type="button"
                   onClick={handleOpenEdit}
@@ -203,7 +247,20 @@ export function ProfileDropdown({ onShowToast, onShare }: ProfileDropdownProps) 
       <ProfileEditDialog
         open={editOpen}
         onOpenChange={setEditOpen}
-        onSuccess={() => onShowToast("프로필을 수정했어요")}
+        onSuccess={(updated) => {
+          onShowToast("프로필을 수정했어요");
+          if (
+            updated?.displayName &&
+            isOnPersonalPage &&
+            updated.displayName.trim().toLowerCase() !== displayName.toLowerCase()
+          ) {
+            router.replace(`/${encodeURIComponent(updated.displayName.trim())}`);
+            return;
+          }
+          if (pathname !== "/") {
+            router.refresh();
+          }
+        }}
       />
     </>
   );

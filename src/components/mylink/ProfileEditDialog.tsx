@@ -13,7 +13,7 @@ import { ProfileEditForm } from "./ProfileEditForm";
 interface ProfileEditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  onSuccess?: (updated?: { displayName: string; bio: string }) => void;
 }
 
 /**
@@ -53,9 +53,9 @@ export function ProfileEditDialog({
             variant="dialog"
             idPrefix="dialog-profile"
             onSubmittingChange={setIsSubmitting}
-            onSuccess={() => {
+            onSuccess={(updated) => {
               onOpenChange(false);
-              onSuccess?.();
+              onSuccess?.(updated);
             }}
           />
         )}

@@ -1,17 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import React, { useCallback, useState, useSyncExternalStore } from "react";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
-import {
-  subscribeToAuthState,
-  toAuthUserSummary,
-} from "@/lib/firebase-auth";
-import {
-  myLinkKeys,
-  useCurrentUserProfileData,
-  useSyncUserProfileMutation,
-} from "@/lib/use-mylink-queries";
+import { useCurrentUserProfileData } from "@/lib/use-mylink-queries";
 import {
   TopBar,
   ProfileHero,
@@ -48,9 +39,7 @@ function AuthLoadingSkeleton() {
 }
 
 export default function HomePage() {
-  const queryClient = useQueryClient();
   const authLoading = useMyLinkStore((state) => state.authLoading);
-  const setAuthUser = useMyLinkStore((state) => state.setAuthUser);
 
   const {
     user,
@@ -59,7 +48,6 @@ export default function HomePage() {
     isLinksError,
     refetchLinks,
   } = useCurrentUserProfileData();
-  const { mutate: syncUserProfile } = useSyncUserProfileMutation();
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const hasMounted = useHasMounted();
@@ -67,37 +55,6 @@ export default function HomePage() {
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
   }, []);
-
-  // 1. Firebase Auth 상태 구독 및 로그인 시 users/{uid} 프로필 동기화 (비실시간)
-  useEffect(() => {
-    let isCancelled = false;
-
-    const unsubscribeAuth = subscribeToAuthState((firebaseUser) => {
-      if (isCancelled) return;
-
-      if (!firebaseUser) {
-        setAuthUser(null);
-        queryClient.removeQueries({ queryKey: myLinkKeys.all });
-        return;
-      }
-
-      setAuthUser(toAuthUserSummary(firebaseUser));
-
-      syncUserProfile(firebaseUser, {
-        onError: (error) => {
-          console.error("Failed to sync user profile to Firestore:", error);
-          if (!isCancelled) {
-            showToast("사용자 프로필을 저장하지 못했어요");
-          }
-        },
-      });
-    });
-
-    return () => {
-      isCancelled = true;
-      unsubscribeAuth();
-    };
-  }, [queryClient, setAuthUser, syncUserProfile, showToast]);
 
   const handleLinkClick = (title: string) => {
     showToast(`${title}(으)로 이동해요`);

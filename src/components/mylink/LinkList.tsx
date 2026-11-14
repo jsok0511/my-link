@@ -9,6 +9,8 @@ import { CategoryFilter, LinkCategoryFilter } from "./CategoryFilter";
 
 interface LinkListProps {
   blocks: ContentBlock[];
+  editable?: boolean;
+  emptyMessage?: string;
   onLinkClick?: (title: string, url: string) => void;
   onLinkUpdated?: (link: LinkItem) => void;
   onLinkDeleted?: (link: LinkItem) => void;
@@ -18,6 +20,8 @@ interface LinkListProps {
 
 export function LinkList({
   blocks,
+  editable = true,
+  emptyMessage,
   onLinkClick,
   onLinkUpdated,
   onLinkDeleted,
@@ -45,6 +49,14 @@ export function LinkList({
     );
   }, [blocks, selectedCategory]);
 
+  const resolvedEmptyMessage =
+    blocks.length === 0
+      ? (emptyMessage ??
+        (editable
+          ? "아직 등록된 링크가 없어요. 위 버튼을 눌러 첫 번째 링크를 추가해 보세요!"
+          : "아직 등록된 링크가 없어요."))
+      : "해당 카테고리에 등록된 링크가 없어요.";
+
   return (
     <div className={`w-full space-y-3 ${className}`}>
       {/* Category Pills Filter */}
@@ -61,9 +73,7 @@ export function LinkList({
       {filteredBlocks.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#E5E8EB] bg-white py-12 px-4 text-center">
           <p className="text-[14px] font-medium text-[#8B95A1] break-keep">
-            {blocks.length === 0
-              ? "아직 등록된 링크가 없어요. 위 버튼을 눌러 첫 번째 링크를 추가해 보세요!"
-              : "해당 카테고리에 등록된 링크가 없어요."}
+            {resolvedEmptyMessage}
           </p>
         </div>
       ) : (
@@ -90,31 +100,38 @@ export function LinkList({
                 icon={link.icon}
                 badge={link.badge}
                 category={link.category}
-                isEditing={editingId === link.id}
+                editable={editable}
+                isEditing={editable && editingId === link.id}
                 onClick={onLinkClick}
-                onEditStart={() => setEditingId(link.id)}
-                onEditCancel={() => setEditingId(null)}
-                onEditSuccess={(updatedLink) => {
-                  setEditingId(null);
-                  onLinkUpdated?.(updatedLink);
-                }}
-                onDeleteRequest={() => setDeletingLink(link)}
+                onEditStart={editable ? () => setEditingId(link.id) : undefined}
+                onEditCancel={editable ? () => setEditingId(null) : undefined}
+                onEditSuccess={
+                  editable
+                    ? (updatedLink) => {
+                        setEditingId(null);
+                        onLinkUpdated?.(updatedLink);
+                      }
+                    : undefined
+                }
+                onDeleteRequest={editable ? () => setDeletingLink(link) : undefined}
               />
             );
           })}
         </div>
       )}
 
-      <LinkDeleteDialog
-        link={deletingLink}
-        onClose={() => setDeletingLink(null)}
-        onSuccess={(deletedLink) => {
-          if (editingId === deletedLink.id) {
-            setEditingId(null);
-          }
-          onLinkDeleted?.(deletedLink);
-        }}
-      />
+      {editable && (
+        <LinkDeleteDialog
+          link={deletingLink}
+          onClose={() => setDeletingLink(null)}
+          onSuccess={(deletedLink) => {
+            if (editingId === deletedLink.id) {
+              setEditingId(null);
+            }
+            onLinkDeleted?.(deletedLink);
+          }}
+        />
+      )}
     </div>
   );
 }

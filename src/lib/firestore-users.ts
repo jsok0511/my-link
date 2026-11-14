@@ -1,8 +1,13 @@
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  limit,
+  query,
   runTransaction,
   serverTimestamp,
+  where,
   type DocumentData,
 } from "firebase/firestore";
 import type { User } from "firebase/auth";
@@ -316,3 +321,57 @@ export async function fetchUserProfile(uid: string): Promise<UserProfileDoc | nu
   }
   return mapDocToUserProfile(uid, snapshot.data());
 }
+
+/**
+ * Safely decodes a URL-encoded route parameter without throwing on malformed sequences.
+ */
+export function safeDecodeDisplayName(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+/**
+ * Looks up a user profile by `displayName` using `displayNames/{key}` (case-insensitive)
+ * and falling back to an exact `displayName` query on `users`. Returns `null` if not found.
+ */
+export async function fetchUserByDisplayName(
+  displayName: string
+): Promise<UserProfileDoc | null> {
+  const trimmed = normalizeDisplayName(safeDecodeDisplayName(displayName));
+  if (!trimmed || trimmed.length > MAX_DISPLAY_NAME_LENGTH) {
+    return null;
+  }
+
+  const dnSnap = await getDoc(getDisplayNameDocRef(trimmed));
+  if (dnSnap.exists()) {
+    const uid = dnSnap.data()?.uid;
+    if (typeof uid === "string" && uid.trim().length > 0) {
+      const profile = await fetchUserProfile(uid.trim());
+      if (profile) {
+        return profile;
+      }
+    }
+  }
+
+  // Fallback for user documents created before the displayNames index existed
+  try {
+    const usersQuery = query(
+      collection(db, "users"),
+      where("displayName", "==", trimmed),
+      limit(1)
+    );
+    const usersSnap = await getDocs(usersQuery);
+    if (!usersSnap.empty) {
+      const userDoc = usersSnap.docs[0];
+      return mapDocToUserProfile(userDoc.id, userDoc.data());
+    }
+  } catch {
+    // Ignore permission/index errors on fallback query
+  }
+
+  return null;
+}
+

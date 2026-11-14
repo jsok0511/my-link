@@ -16,3 +16,5 @@ export * from "./LoginRequiredCard";
 export * from "./ProfileDropdown";
 export * from "./ProfileEditDialog";
 export * from "./ProfileEditForm";
+export * from "./PublicProfileView";
+

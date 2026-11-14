@@ -1,0 +1,155 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // =========================================================
+    // 공통 인증 헬퍼
+    // =========================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // =========================================================
+    // 유효성 검증 헬퍼 (실제 src/lib/firestore-users.ts, firestore-links.ts 기준)
+    // =========================================================
+    function isValidUserProfile(userId) {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'email',
+          'photoURL',
+          'bio',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.uid == userId
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 30
+        && (!('bio' in data) || (data.bio is string && data.bio.size() <= 120))
+        && (!('email' in data) || data.email is string)
+        && (!('photoURL' in data) || data.photoURL is string)
+        && (!('createdAt' in data) || data.createdAt is timestamp)
+        && data.updatedAt == request.time;
+    }
+
+    function isValidDisplayNameDoc() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'normalizedName',
+          'updatedAt'
+        ])
+        && data.uid is string
+        && data.uid == request.auth.uid
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 30
+        && data.normalizedName is string
+        && data.normalizedName.size() >= 1
+        && data.normalizedName.size() <= 30
+        && data.updatedAt == request.time;
+    }
+
+    function isValidLinkDoc() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+          'type',
+          'title',
+          'url',
+          'description',
+          'icon',
+          'badge',
+          'category',
+          'enabled',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.type == 'link'
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 100
+        && data.url is string
+        && data.url.size() <= 2048
+        && data.url.matches('^https?://.+')
+        && (!('description' in data) || (data.description is string && data.description.size() <= 300))
+        && (!('icon' in data) || (data.icon is string && data.icon.size() <= 50))
+        && (!('badge' in data) || (data.badge is string && data.badge.size() <= 30))
+        && (!('category' in data) || data.category in ['dev', 'career', 'social', 'contact'])
+        && data.enabled is bool;
+    }
+
+    // =========================================================
+    // 1. 사용자 프로필 문서: users/{userId}
+    //    (현재 코드 src/lib/firestore-users.ts가 실제로 사용하는 경로)
+    // =========================================================
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId)
+        && isValidUserProfile(userId)
+        && (!('createdAt' in request.resource.data) || request.resource.data.createdAt == request.time);
+      allow update: if isOwner(userId)
+        && isValidUserProfile(userId)
+        && (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+      allow delete: if isOwner(userId);
+
+      // =======================================================
+      // 2. 사용자 링크 서브컬렉션: users/{userId}/links/{linkId}
+      // =======================================================
+      match /links/{linkId} {
+        allow read: if true;
+        allow create: if isOwner(userId)
+          && isValidLinkDoc()
+          && request.resource.data.createdAt == request.time;
+        allow update: if isOwner(userId)
+          && isValidLinkDoc()
+          && (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt)
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if isOwner(userId);
+      }
+
+      // =======================================================
+      // 3. (확장/요청 경로) users/{userId}/profile/{profileId}
+      //    공개 프로필을 서브컬렉션(예: profile/public)으로 분리할 경우 사용
+      // =======================================================
+      match /profile/{profileId} {
+        allow read: if true;
+        allow write: if isOwner(userId);
+      }
+    }
+
+    // =========================================================
+    // 4. 닉네임(displayName) 중복 방지 & 공개 URL 조회 인덱스
+    //    (프로필 편집/로그인 동기화 시 src/lib/firestore-users.ts에서 필수 사용)
+    // =========================================================
+    match /displayNames/{nameKey} {
+      // 단건 조회(중복 확인 및 /[displayName] 조회)만 허용하고 전체 목록 스캔(list)은 차단
+      allow get: if true;
+      allow list: if false;
+
+      allow create: if isSignedIn()
+        && nameKey.matches('^dn_.+')
+        && isValidDisplayNameDoc();
+
+      allow update: if isOwner(resource.data.uid)
+        && nameKey.matches('^dn_.+')
+        && isValidDisplayNameDoc();
+
+      // 이름 변경 시 기존 displayNames/{oldKey} 문서 삭제 허용
+      allow delete: if isOwner(resource.data.uid);
+    }
+
+    // =========================================================
+    // 5. 그 외 정의되지 않은 모든 경로 기본 차단
+    // =========================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

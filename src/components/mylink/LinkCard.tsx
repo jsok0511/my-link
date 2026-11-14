@@ -23,6 +23,7 @@ export interface LinkCardProps {
   badge?: string;
   category?: LinkItem["category"];
   isExternal?: boolean;
+  editable?: boolean;
   isEditing?: boolean;
   onClick?: (title: string, url: string) => void;
   onEditStart?: () => void;
@@ -152,6 +153,7 @@ export function LinkCard({
   badge,
   category,
   isExternal = true,
+  editable = true,
   isEditing,
   onClick,
   onEditStart,
@@ -161,7 +163,7 @@ export function LinkCard({
   className = "",
 }: LinkCardProps) {
   const [internalEditing, setInternalEditing] = useState(false);
-  const editing = isEditing !== undefined ? isEditing : internalEditing;
+  const editing = editable && (isEditing !== undefined ? isEditing : internalEditing);
 
   const handleClick = () => {
     if (onClick) {
@@ -170,6 +172,7 @@ export function LinkCard({
   };
 
   const handleEditStart = () => {
+    if (!editable) return;
     if (onEditStart) {
       onEditStart();
     } else {
@@ -218,7 +221,7 @@ export function LinkCard({
     <Card
       className={`group relative overflow-hidden rounded-2xl border border-[#E5E8EB] bg-white p-0 transition-all duration-200 hover:border-[#3182F6] hover:shadow-sm ${className}`}
     >
-      <div className="flex items-center gap-2 p-4 pr-3">
+      <div className={`flex items-center gap-2 p-4 ${editable ? "pr-3" : ""}`}>
         <a
           href={url}
           target={isExternal ? "_blank" : undefined}
@@ -257,31 +260,33 @@ export function LinkCard({
           </div>
         </a>
 
-        {/* Right: Always-visible Edit & Delete Buttons */}
-        <div className="flex shrink-0 items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={handleEditStart}
-            aria-label={`${title} 수정`}
-            title="수정"
-            className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl text-[#6B7684] hover:bg-[#E8F3FF] hover:text-[#3182F6]"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={onDeleteRequest}
-            aria-label={`${title} 삭제`}
-            title="삭제"
-            className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl text-[#6B7684] hover:bg-red-50 hover:text-red-500"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+        {/* Right: Edit & Delete Buttons (shown only when editable) */}
+        {editable && (
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleEditStart}
+              aria-label={`${title} 수정`}
+              title="수정"
+              className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl text-[#6B7684] hover:bg-[#E8F3FF] hover:text-[#3182F6]"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={onDeleteRequest}
+              aria-label={`${title} 삭제`}
+              title="삭제"
+              className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl text-[#6B7684] hover:bg-red-50 hover:text-red-500"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
     </Card>
   );

@@ -1,10 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { Share2, Check } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Share2, Check, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMyLinkStore } from "@/store/useMyLinkStore";
 import { useGoogleAuth } from "@/lib/use-google-auth";
+import { useCurrentUserProfileData } from "@/lib/use-mylink-queries";
+import { safeDecodeDisplayName } from "@/lib/firestore-users";
 import { GoogleIcon } from "./GoogleIcon";
 import { ProfileDropdown } from "./ProfileDropdown";
 
@@ -15,9 +19,26 @@ interface TopBarProps {
 
 export function TopBar({ onShowToast, className = "" }: TopBarProps) {
   const [copied, setCopied] = useState(false);
+  const pathname = usePathname();
   const user = useMyLinkStore((state) => state.user);
   const authLoading = useMyLinkStore((state) => state.authLoading);
+  const { profile, profileDoc } = useCurrentUserProfileData();
   const { isSigningIn, handleSignIn } = useGoogleAuth({ onShowToast });
+
+  const myDisplayName = (
+    profileDoc?.displayName ||
+    profile.displayName ||
+    user?.displayName ||
+    ""
+  ).trim();
+  const personalPageHref = myDisplayName
+    ? `/${encodeURIComponent(myDisplayName)}`
+    : null;
+  const isOnPersonalPage = Boolean(
+    myDisplayName &&
+      safeDecodeDisplayName(pathname).toLowerCase() ===
+        `/${myDisplayName.toLowerCase()}`
+  );
 
   const handleShare = async () => {
     try {
@@ -47,15 +68,32 @@ export function TopBar({ onShowToast, className = "" }: TopBarProps) {
     >
       <div className="mx-auto flex h-14 max-w-md items-center justify-between gap-2 px-4 sm:max-w-lg">
         {/* Brand Logo */}
-        <div className="flex shrink-0 items-center gap-2">
+        <Link
+          href="/"
+          className="flex shrink-0 items-center gap-2 no-underline transition-opacity hover:opacity-80"
+        >
           <span className="flex h-2.5 w-2.5 rounded-full bg-[#3182F6]" />
           <span className="text-[15px] font-bold tracking-tight text-[#191F28]">
             MYLINK
           </span>
-        </div>
+        </Link>
 
-        {/* Right Actions: Share + Auth / Profile Dropdown */}
-        <div className="flex items-center gap-1.5">
+        {/* Right Actions: Personal Page + Share + Auth / Profile Dropdown */}
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          {!authLoading && user && personalPageHref && (
+            <Link
+              href={personalPageHref}
+              className={`flex h-8 items-center gap-1 rounded-xl px-2.5 text-[13px] transition-all active:scale-95 no-underline ${
+                isOnPersonalPage
+                  ? "bg-[#E8F3FF] font-semibold text-[#3182F6]"
+                  : "font-medium text-[#4E5968] hover:bg-[#F2F4F6] hover:text-[#191F28]"
+              }`}
+            >
+              <UserRound className="h-3.5 w-3.5" />
+              <span>내 페이지</span>
+            </Link>
+          )}
+
           {/* Share Button */}
           <Button
             variant="ghost"

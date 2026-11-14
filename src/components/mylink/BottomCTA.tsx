@@ -5,11 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 
 interface BottomCTAProps {
+  label?: string;
   onAction?: () => void;
   className?: string;
 }
 
-export function BottomCTA({ onAction, className = "" }: BottomCTAProps) {
+export function BottomCTA({
+  label = "나만의 마이링크 무료로 만들기",
+  onAction,
+  className = "",
+}: BottomCTAProps) {
   const handleClick = () => {
     if (onAction) {
       onAction();
@@ -26,7 +31,7 @@ export function BottomCTA({ onAction, className = "" }: BottomCTAProps) {
         className="h-[52px] w-full rounded-2xl bg-[#3182F6] text-[15px] sm:text-[16px] font-bold text-white shadow-sm transition-all duration-150 hover:bg-[#1B64DA] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
       >
         <Sparkles className="h-4 w-4" />
-        <span>나만의 마이링크 무료로 만들기</span>
+        <span>{label}</span>
       </Button>
 
       {/* Footer Copyright */}

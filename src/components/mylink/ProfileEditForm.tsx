@@ -44,7 +44,7 @@ export interface ProfileEditFormProps {
   variant?: "inline" | "dialog";
   idPrefix?: string;
   onCancel?: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (updated?: { displayName: string; bio: string }) => void;
   onSubmittingChange?: (submitting: boolean) => void;
 }
 
@@ -166,7 +166,7 @@ export function ProfileEditForm({
         bio: trimmedBio,
       });
 
-      onSuccess?.();
+      onSuccess?.({ displayName: trimmedName, bio: trimmedBio });
     } catch (error) {
       if (error instanceof DuplicateDisplayNameError) {
         setCheckState({
